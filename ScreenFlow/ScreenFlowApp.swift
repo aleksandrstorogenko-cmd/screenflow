@@ -2,16 +2,30 @@
 //  ScreenFlowApp.swift
 //  ScreenFlow
 //
-//  Created by Oleksandr Storozhenko on 11/11/25.
+//  Main app entry point
 //
 
 import SwiftUI
+import SwiftData
 
 @main
 struct ScreenFlowApp: App {
+    /// SwiftData model container
+    let modelContainer: ModelContainer
+
+    init() {
+        // Initialize SwiftData container with Screenshot model
+        do {
+            modelContainer = try ModelContainer(for: Screenshot.self)
+        } catch {
+            fatalError("Failed to initialize ModelContainer: \(error)")
+        }
+    }
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ScreenshotListView()
         }
+        .modelContainer(modelContainer)
     }
 }
