@@ -70,7 +70,7 @@ struct ScreenshotListView: View {
                 }
             }
             .navigationTitle("Inbox")
-            .navigationSubtitle("\(filteredScreenshots.count) screenshot(s)")
+            .navigationSubtitleIfAvailable("\(filteredScreenshots.count) screenshot(s)")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ScreenshotListToolbar(
@@ -81,7 +81,6 @@ struct ScreenshotListView: View {
                 )
             }
             .searchable(text: $searchText, placement: .toolbarPrincipal, prompt: "Search")
-            .searchToolbarBehavior(.minimize)
             .environment(\.editMode, $editMode)
             .task {
                 await requestPermissionAndSync()

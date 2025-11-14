@@ -24,25 +24,34 @@ struct ScreenshotListToolbar: ToolbarContent {
     var body: some ToolbarContent {
         // Delete button (shown in edit mode)
         if editMode == .active {
-            ToolbarItem(placement: .navigationBarLeading) {
+            ToolbarItem(placement: .navigationBarTrailing) {
                 Button(role: .destructive) {
                     onDeleteSelected()
                 } label: {
                     Label("Delete", systemImage: "trash")
+                        .foregroundColor(.red)
                 }
+                .tint(.red)
                 .disabled(selectedScreenshots.isEmpty)
             }
-        }
-
-        // Filter menu
-        ToolbarItem(placement: .navigationBarTrailing) {
-            Menu {
-                Picker("Filter", selection: $showTodayOnly) {
-                    Label("Today", systemImage: "calendar").tag(true)
-                    Label("All", systemImage: "calendar.badge.clock").tag(false)
+        } else {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Menu {
+                    Picker("Filter", selection: $showTodayOnly) {
+                        Label("Today", systemImage: "calendar").tag(true)
+                        Label("All", systemImage: "calendar.badge.clock").tag(false)
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: "line.3.horizontal.decrease")
+                        if showTodayOnly {
+                            Text("Today")
+                        } else {
+                            Text("All")
+                        }
+                    }
+                    .padding(.trailing, 10)
                 }
-            } label: {
-                Image(systemName: "line.3.horizontal.decrease")
             }
         }
 

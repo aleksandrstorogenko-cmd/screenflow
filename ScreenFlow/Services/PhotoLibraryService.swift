@@ -28,6 +28,18 @@ final class PhotoLibraryService: ObservableObject {
     /// Title generator service dependency
     private let titleGeneratorService = TitleGeneratorService()
 
+    /// Entity extraction service dependency
+    private let entityExtractionService = EntityExtractionService.shared
+
+    /// Action generation service dependency
+    private let actionGenerationService = ActionGenerationService.shared
+
+    /// Extraction queue for limiting concurrent processing
+    private let extractionQueue = ExtractionQueue(maxConcurrent: 2)
+
+    /// Extraction cache to avoid reprocessing
+    private let extractionCache = ExtractionCache()
+
     private init() {}
 
     // MARK: - Permission & Sync
@@ -134,17 +146,31 @@ final class PhotoLibraryService: ObservableObject {
         // Skip if already has a title
         guard screenshot.title == nil else { return }
 
+        // Check cache - skip if already processed
+        let isCached = await extractionCache.isCached(screenshot.assetIdentifier)
+        if isCached { return }
+
         // Get the asset
         guard let asset = getAsset(for: screenshot.assetIdentifier) else { return }
 
+        // Wait for a processing slot (limits concurrent extractions)
+        await extractionQueue.waitForSlot()
+
         // Analyze and generate title
         await analyzeScreenshot(screenshot, asset: asset)
+
+        // Mark as completed in cache
+        await extractionCache.markCompleted(screenshot.assetIdentifier)
+
+        // Release the slot
+        await extractionQueue.releaseSlot()
 
         // Save the context
         try? modelContext.save()
     }
 
     /// Analyze screenshot using Vision and set title/kind fields
+    /// Also extracts entities and generates smart actions
     /// - Parameters:
     ///   - screenshot: Screenshot model to update
     ///   - asset: PHAsset to analyze
@@ -181,12 +207,35 @@ final class PhotoLibraryService: ObservableObject {
                             )
                             screenshot.title = result.title
                             screenshot.kind = result.kind.rawValue
+
+                            // Extract entities from the screenshot
+                            Task {
+                                let extractedData = await self.entityExtractionService.extractEntities(
+                                    from: result.fullText,
+                                    sceneClassifications: result.sceneClassifications,
+                                    cgImage: cgImage
+                                )
+
+                                // Link to screenshot
+                                extractedData.screenshot = screenshot
+                                screenshot.extractedData = extractedData
+
+                                // Generate smart actions
+                                let actions = self.actionGenerationService.generateActions(from: extractedData)
+
+                                // Link actions to screenshot
+                                for action in actions {
+                                    action.screenshot = screenshot
+                                    screenshot.smartActions.append(action)
+                                }
+
+                                continuation.resume()
+                            }
                         } catch {
                             // If analysis fails, leave title and kind as nil
                             print("Failed to analyze screenshot: \(error)")
+                            continuation.resume()
                         }
-
-                        continuation.resume()
                     }
                 }
             }

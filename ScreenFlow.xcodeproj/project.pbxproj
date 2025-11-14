@@ -256,12 +256,18 @@
 				DEVELOPMENT_TEAM = A6DH7A5GC7;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSApplicationQueriesSchemes = "maps mobilenotes";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "ScreenFlow needs calendar access to add events detected in your screenshots.";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "ScreenFlow needs calendar access to add events detected in your screenshots.";
+				INFOPLIST_KEY_NSContactsUsageDescription = "ScreenFlow needs contacts access to save people detected in your screenshots.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "ScreenFlow needs photo access to save screenshots you choose to export.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "ScreenFlow needs access to your photo library to display and manage your screenshots.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -289,12 +295,18 @@
 				DEVELOPMENT_TEAM = A6DH7A5GC7;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSApplicationQueriesSchemes = "maps mobilenotes";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "ScreenFlow needs calendar access to add events detected in your screenshots.";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "ScreenFlow needs calendar access to add events detected in your screenshots.";
+				INFOPLIST_KEY_NSContactsUsageDescription = "ScreenFlow needs contacts access to save people detected in your screenshots.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "ScreenFlow needs photo access to save screenshots you choose to export.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "ScreenFlow needs access to your photo library to display and manage your screenshots.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

@@ -39,6 +39,18 @@ final class Screenshot {
     /// Possible values: "qr", "document", "link", "receipt", "businessCard", "chat", "text", "photo", "other"
     var kind: String?
 
+    // MARK: - Relationships
+
+    /// Extracted data from this screenshot
+    @Relationship(deleteRule: .cascade, inverse: \ExtractedData.screenshot)
+    var extractedData: ExtractedData?
+
+    /// Smart actions generated for this screenshot
+    @Relationship(deleteRule: .cascade, inverse: \SmartAction.screenshot)
+    var smartActions: [SmartAction] = []
+
+    // MARK: - Initialization
+
     /// Initialize a new Screenshot instance
     /// - Parameters:
     ///   - assetIdentifier: Unique PHAsset local identifier
