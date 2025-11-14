@@ -15,27 +15,51 @@ struct MasonryLayout<Content: View>: View {
     /// Spacing between items
     let spacing: CGFloat = 8
 
+    /// Callback when more items should be loaded
+    let onLoadMore: () -> Void
+
     /// Content builder for each item
-    @ViewBuilder let content: (Screenshot) -> Content
+    @ViewBuilder let content: (Screenshot, Bool) -> Content
+
+    /// Track if we're currently loading more
+    @State private var isLoadingMore = false
 
     var body: some View {
         GeometryReader { geometry in
             ScrollView {
-                HStack(alignment: .top, spacing: spacing) {
-                    LazyVStack(spacing: spacing) {
-                        ForEach(leftColumnItems, id: \.id) { screenshot in
-                            content(screenshot)
+                VStack(spacing: 0) {
+                    HStack(alignment: .top, spacing: spacing) {
+                        LazyVStack(spacing: spacing) {
+                            ForEach(Array(leftColumnItems.enumerated()), id: \.element.id) { index, screenshot in
+                                content(screenshot, isLastItem(screenshot, in: leftColumnItems))
+                                    .onAppear {
+                                        checkAndLoadMore(screenshot: screenshot, index: index, columnItems: leftColumnItems)
+                                    }
+                            }
+                        }
+
+                        LazyVStack(spacing: spacing) {
+                            ForEach(Array(rightColumnItems.enumerated()), id: \.element.id) { index, screenshot in
+                                content(screenshot, isLastItem(screenshot, in: rightColumnItems))
+                                    .onAppear {
+                                        checkAndLoadMore(screenshot: screenshot, index: index, columnItems: rightColumnItems)
+                                    }
+                            }
                         }
                     }
+                    .padding(.horizontal, spacing)
+                    .padding(.top, spacing)
 
-                    LazyVStack(spacing: spacing) {
-                        ForEach(rightColumnItems, id: \.id) { screenshot in
-                            content(screenshot)
+                    // Loading indicator at the bottom when loading more
+                    if isLoadingMore {
+                        HStack {
+                            Spacer()
+                            ProgressView()
+                                .padding(.vertical, 20)
+                            Spacer()
                         }
                     }
                 }
-                .padding(.horizontal, spacing)
-                .padding(.top, spacing)
             }
         }
     }
@@ -48,6 +72,33 @@ struct MasonryLayout<Content: View>: View {
     /// Items for the right column
     private var rightColumnItems: [Screenshot] {
         distributeItems().1
+    }
+
+    /// Check if we should load more items
+    private func checkAndLoadMore(screenshot: Screenshot, index: Int, columnItems: [Screenshot]) {
+        // Skip if already loading
+        guard !isLoadingMore else { return }
+
+        // Load more when we're 5 items from the end of either column
+        if index >= columnItems.count - 3 {
+            // Also check if this screenshot is near the end of the total list
+            if let totalIndex = screenshots.firstIndex(where: { $0.id == screenshot.id }),
+               totalIndex >= screenshots.count - 5 {
+                isLoadingMore = true
+                onLoadMore()
+
+                // Reset loading state after a delay
+                Task {
+                    try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+                    isLoadingMore = false
+                }
+            }
+        }
+    }
+
+    /// Check if this is the last item in the column
+    private func isLastItem(_ screenshot: Screenshot, in column: [Screenshot]) -> Bool {
+        column.last?.id == screenshot.id
     }
 
     /// Distribute screenshots between two columns to balance heights

@@ -6,40 +6,69 @@
 //
 
 import SwiftUI
+import SwiftData
 
 /// Card view for displaying a screenshot in the masonry grid
 struct ScreenshotCardView: View {
     /// Screenshot to display
     let screenshot: Screenshot
 
+    /// Edit mode state
+    @Environment(\.editMode) private var editMode
+
     /// SwiftData model context
     @Environment(\.modelContext) private var modelContext
+
+    /// Selected screenshots for bulk operations
+    @Binding var selectedScreenshots: Set<Screenshot.ID>
 
     /// Full-size image state
     @State private var image: UIImage?
 
-    /// Track if we're currently generating title
-    @State private var isGeneratingTitle = false
+    /// Whether this screenshot is selected
+    private var isSelected: Bool {
+        selectedScreenshots.contains(screenshot.id)
+    }
+
+    /// Whether we're in edit mode
+    private var isEditMode: Bool {
+        editMode?.wrappedValue.isEditing ?? false
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Image container with reduced height
-            Group {
-                if let image = image {
-                    Image(uiImage: image)
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } else {
-                    // Placeholder while loading
-                    Rectangle()
-                        .fill(Color.gray.opacity(0.2))
-                        .overlay {
-                            ProgressView()
-                        }
+            ZStack(alignment: .bottomTrailing) {
+                Group {
+                    if let image = image {
+                        Image(uiImage: image)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    } else {
+                        // Placeholder while loading
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.2))
+                            .overlay {
+                                ProgressView()
+                            }
+                    }
+                }
+                .frame(height: imageContainerHeight)
+                .clipped()
+
+                // Checkbox overlay in edit mode
+                if isEditMode {
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .font(.title2)
+                        .foregroundColor(isSelected ? .blue : .white)
+                        .background(
+                            Circle()
+                                .fill(isSelected ? Color.white : Color.black.opacity(0.3))
+                                .frame(width: 28, height: 28)
+                        )
+                        .padding(12)
                 }
             }
-            .frame(height: imageContainerHeight)
-            .clipped()
             .padding(8)
 
             // Title overlay
@@ -71,9 +100,25 @@ struct ScreenshotCardView: View {
         .background(Color(.systemBackground))
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
+        .contentShape(RoundedRectangle(cornerRadius: 16))
+        .if(isEditMode) { view in
+            view.onTapGesture {
+                toggleSelection()
+            }
+        }
         .onAppear {
             loadImage()
-            generateTitleIfNeeded()
+            // Don't auto-generate titles to prevent UI freeze
+            // Titles will be generated lazily when needed or in the background
+        }
+    }
+
+    /// Toggle selection state
+    private func toggleSelection() {
+        if selectedScreenshots.contains(screenshot.id) {
+            selectedScreenshots.remove(screenshot.id)
+        } else {
+            selectedScreenshots.insert(screenshot.id)
         }
     }
 
@@ -95,22 +140,6 @@ struct ScreenshotCardView: View {
         }
     }
 
-    /// Generate title for screenshot if it doesn't have one
-    private func generateTitleIfNeeded() {
-        // Skip if already has a title or already generating
-        guard screenshot.title == nil && !isGeneratingTitle else { return }
-
-        isGeneratingTitle = true
-
-        Task {
-            await PhotoLibraryService.shared.generateTitleIfNeeded(
-                for: screenshot,
-                modelContext: modelContext
-            )
-            isGeneratingTitle = false
-        }
-    }
-
     /// Get SF Symbol icon for screenshot kind
     private func iconForKind(_ kind: String) -> String {
         switch kind {
@@ -123,6 +152,19 @@ struct ScreenshotCardView: View {
         case "text": return "text.alignleft"
         case "photo": return "photo"
         default: return "doc"
+        }
+    }
+}
+
+// MARK: - View Extension for Conditional Modifiers
+extension View {
+    /// Conditionally applies a transform to the view
+    @ViewBuilder
+    func `if`<Content: View>(_ condition: Bool, transform: (Self) -> Content) -> some View {
+        if condition {
+            transform(self)
+        } else {
+            self
         }
     }
 }

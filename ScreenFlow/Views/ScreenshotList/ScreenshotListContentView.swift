@@ -22,19 +22,52 @@ struct ScreenshotListContentView: View {
     /// Callback when more items should be loaded
     let onLoadMore: () -> Void
 
+    /// Edit mode state
+    @Environment(\.editMode) private var editMode
+
+    /// Loading state for pagination
+    @State private var isLoadingMore = false
+
+    /// Whether we're in edit mode
+    private var isEditMode: Bool {
+        editMode?.wrappedValue.isEditing ?? false
+    }
+
     var body: some View {
-        MasonryLayout(screenshots: screenshots) { screenshot in
-            NavigationLink(value: screenshot) {
-                ScreenshotCardView(screenshot: screenshot)
+        ZStack {
+            MasonryLayout(screenshots: screenshots, onLoadMore: handleLoadMore) { screenshot, isLastInColumn in
+                if isEditMode {
+                    // In edit mode, just show the card without navigation
+                    ScreenshotCardView(screenshot: screenshot, selectedScreenshots: $selectedScreenshots)
+                } else {
+                    // Normal mode with navigation
+                    NavigationLink(value: screenshot) {
+                        ScreenshotCardView(screenshot: screenshot, selectedScreenshots: $selectedScreenshots)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
             }
-            .buttonStyle(PlainButtonStyle())
+            .background(Color(.systemGroupedBackground))
         }
-        .background(Color(.systemGroupedBackground))
         .navigationDestination(for: Screenshot.self) { screenshot in
             ScreenshotDetailView(
                 screenshot: screenshot,
                 allScreenshots: screenshots
             )
+        }
+    }
+
+    /// Handle load more with debouncing
+    private func handleLoadMore() {
+        guard !isLoadingMore else { return }
+
+        isLoadingMore = true
+        onLoadMore()
+
+        // Reset loading state after a short delay to prevent rapid firing
+        Task {
+            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+            isLoadingMore = false
         }
     }
 }

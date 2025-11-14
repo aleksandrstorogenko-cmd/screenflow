@@ -50,6 +50,9 @@ struct ScreenshotListView: View {
     /// Filter option: today or all
     @State private var showTodayOnly = true
 
+    /// Background title generation task
+    @State private var titleGenerationTask: Task<Void, Never>?
+
     var body: some View {
         NavigationStack {
             Group {
@@ -95,6 +98,22 @@ struct ScreenshotListView: View {
                         await syncScreenshots()
                     }
                 }
+            }
+            .onChange(of: showTodayOnly) { oldValue, newValue in
+                // Reset pagination when filter changes
+                displayLimit = 20
+            }
+            .onChange(of: searchText) { oldValue, newValue in
+                // Reset pagination when search changes
+                displayLimit = 20
+            }
+            .onChange(of: filteredScreenshots) { oldValue, newValue in
+                // Start background title generation for new screenshots
+                startBackgroundTitleGeneration()
+            }
+            .onDisappear {
+                // Cancel background task when view disappears
+                titleGenerationTask?.cancel()
             }
             .alert("Photo Library Access Required", isPresented: $showPermissionAlert) {
                 Button("Settings", action: openSettings)
@@ -172,6 +191,33 @@ struct ScreenshotListView: View {
     private func openSettings() {
         if let url = URL(string: UIApplication.openSettingsURLString) {
             UIApplication.shared.open(url)
+        }
+    }
+
+    /// Start background title generation for screenshots that don't have titles
+    private func startBackgroundTitleGeneration() {
+        // Cancel any existing task
+        titleGenerationTask?.cancel()
+
+        // Start a new background task
+        titleGenerationTask = Task {
+            // Get screenshots that need titles
+            let screenshotsNeedingTitles = filteredScreenshots.filter { $0.title == nil }
+
+            // Process them one at a time with delays to avoid UI freeze
+            for screenshot in screenshotsNeedingTitles {
+                // Check if task was cancelled
+                guard !Task.isCancelled else { return }
+
+                // Generate title for this screenshot
+                await photoLibraryService.generateTitleIfNeeded(
+                    for: screenshot,
+                    modelContext: modelContext
+                )
+
+                // Wait before processing next one to keep UI responsive
+                try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds between each
+            }
         }
     }
 }
