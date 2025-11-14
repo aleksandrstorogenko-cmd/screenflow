@@ -23,30 +23,13 @@ struct ScreenshotListContentView: View {
     let onLoadMore: () -> Void
 
     var body: some View {
-        List(selection: $selectedScreenshots) {
-            ForEach(Array(screenshots.enumerated()), id: \.element.id) { index, screenshot in
-                NavigationLink(value: screenshot) {
-                    ScreenshotRowView(screenshot: screenshot)
-                }
-                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                    Button(role: .destructive) {
-                        onDelete(screenshot)
-                    } label: {
-                        Image(systemName: "trash")
-                    }
-                }
-                .onAppear {
-                    // Load more when reaching near the end
-                    if index == screenshots.count - 5 {
-                        onLoadMore()
-                    }
-                }
+        MasonryLayout(screenshots: screenshots) { screenshot in
+            NavigationLink(value: screenshot) {
+                ScreenshotCardView(screenshot: screenshot)
             }
+            .buttonStyle(PlainButtonStyle())
         }
-        .listStyle(.plain)
-        .background(Color.white)
-        .scrollContentBackground(.hidden)
+        .background(Color(.systemGroupedBackground))
         .navigationDestination(for: Screenshot.self) { screenshot in
             ScreenshotDetailView(
                 screenshot: screenshot,
