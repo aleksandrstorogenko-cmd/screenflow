@@ -25,6 +25,9 @@ struct ScreenshotDetailView: View {
     /// Current index
     @State private var currentIndex: Int
 
+    /// Scroll position tracking
+    @State private var scrollPosition: Int?
+
     /// Show info sheet
     @State private var showInfoSheet = false
 
@@ -69,8 +72,15 @@ struct ScreenshotDetailView: View {
                     .scrollTargetLayout()
                 }
                 .scrollTargetBehavior(.paging)
+                .scrollPosition(id: $scrollPosition)
                 .onAppear {
+                    scrollPosition = currentIndex
                     proxy.scrollTo(currentIndex, anchor: .leading)
+                }
+                .onChange(of: scrollPosition) { oldValue, newValue in
+                    if let newValue = newValue {
+                        currentIndex = newValue
+                    }
                 }
             }
         }
