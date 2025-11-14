@@ -23,22 +23,23 @@ struct ScreenshotCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Image
+            // Image container with reduced height
             Group {
                 if let image = image {
                     Image(uiImage: image)
                         .resizable()
-                        .aspectRatio(contentMode: .fit)
+                        .aspectRatio(contentMode: .fill)
                 } else {
                     // Placeholder while loading
                     Rectangle()
                         .fill(Color.gray.opacity(0.2))
-                        .aspectRatio(CGFloat(screenshot.width) / CGFloat(screenshot.height), contentMode: .fit)
                         .overlay {
                             ProgressView()
                         }
                 }
             }
+            .frame(height: imageContainerHeight)
+            .clipped()
             .padding(8)
 
             // Title overlay
@@ -53,7 +54,7 @@ struct ScreenshotCardView: View {
 
                     Text(screenshot.title ?? screenshot.fileName)
                         .font(.subheadline)
-                        .fontWeight(.medium)
+                        .fontWeight(.semibold)
                         .lineLimit(2)
                         .foregroundColor(.primary)
                 }
@@ -74,6 +75,14 @@ struct ScreenshotCardView: View {
             loadImage()
             generateTitleIfNeeded()
         }
+    }
+
+    /// Calculate reduced image container height (30% less than original aspect ratio)
+    private var imageContainerHeight: CGFloat {
+        let aspectRatio = CGFloat(screenshot.height) / CGFloat(screenshot.width)
+        // Assuming column width is approximately 180 (based on typical device width)
+        let baseHeight = 180 * aspectRatio
+        return baseHeight * 0.7 // 30% reduction
     }
 
     /// Load image from photo library with appropriate size for grid
