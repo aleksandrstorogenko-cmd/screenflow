@@ -116,14 +116,10 @@ struct ScreenshotDetailView: View {
                 }
             }
         }
-        .background(
-            BackSwipeObserver {
-                // Dismiss info sheet when swipe back gesture begins
-                showInfoSheet = false
-            }
-        )
         .ignoresSafeArea()
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
+        .disableSwipeBack()
         .onDisappear {
             // Cancel any ongoing re-analysis when leaving the view
             reanalysisScheduler.cancelReanalysis()
@@ -132,6 +128,24 @@ struct ScreenshotDetailView: View {
             showInfoSheet = false
         }
         .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button(action: {
+                    // Dismiss info sheet before navigating back
+                    showInfoSheet = false
+                    // Small delay to allow sheet to dismiss smoothly
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                        dismiss()
+                    }
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 17, weight: .semibold))
+                        Text("Back")
+                            .font(.system(size: 17))
+                    }
+                }
+            }
+
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 16) {
                     Button(action: shareScreenshot) {
