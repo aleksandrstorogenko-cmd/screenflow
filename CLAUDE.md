@@ -88,7 +88,7 @@ ScreenFlow/
 │   ├── PhotoLibraryService.swift # Photo library sync and management
 │   ├── ScreenshotService.swift   # Screenshot operations
 │   ├── PermissionService.swift   # Photo library permissions
-│   ├── TitleGeneratorService.swift # AI title generation
+│   ├── ScreenshotAnalysisService.swift # Screenshot classification, OCR, and title generation
 │   ├── EntityExtraction/         # Entity extraction services
 │   │   ├── EntityExtractionService.swift
 │   │   ├── BasicEntityExtractor.swift
@@ -216,7 +216,7 @@ ScreenFlow.xcodeproj/             # Xcode project configuration
 
 **Dependencies:**
 - `PermissionService`
-- `TitleGeneratorService`
+- `ScreenshotAnalysisService`
 - `EntityExtractionService`
 - `ActionGenerationService`
 - `ExtractionQueue`
@@ -420,12 +420,10 @@ struct SomeView: View {
 ### Modifying the Extraction Pipeline
 
 The extraction pipeline in `PhotoLibraryService.swift`:
-1. OCR text recognition (Vision)
-2. Scene classification (Vision)
-3. Entity extraction (`EntityExtractionService`)
-4. Object detection (`ObjectDetectionService`)
-5. Title generation (`TitleGeneratorService`)
-6. Action generation (`ActionGenerationService`)
+1. Screenshot analysis - OCR, scene classification, and title generation (`ScreenshotAnalysisService`)
+2. Entity extraction - URLs, emails, phones, events, contacts (`EntityExtractionService`)
+3. Object detection - ML-based object recognition (`ObjectDetectionService`)
+4. Action generation - Context-aware smart actions (`ActionGenerationService`)
 
 Modifications should maintain this order and handle errors gracefully.
 
@@ -568,6 +566,7 @@ When working on specific features, reference these files:
 
 **Core Services:**
 - `ScreenFlow/Services/PhotoLibraryService.swift` (main orchestrator)
+- `ScreenFlow/Services/ScreenshotAnalysisService.swift` (classification, OCR, title generation)
 - `ScreenFlow/Services/EntityExtraction/EntityExtractionService.swift`
 - `ScreenFlow/Services/ObjectDetection/ObjectDetectionService.swift`
 - `ScreenFlow/Services/ActionGeneration/ActionGenerationService.swift`
