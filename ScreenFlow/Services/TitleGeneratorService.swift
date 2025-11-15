@@ -183,8 +183,8 @@ final class TitleGeneratorService {
         let covered = s.textObs.reduce(CGFloat(0)) { $0 + $1.boundingBox.height * H }
         s.textDensity = min(1.0, Double(covered / H))
 
-        // Get more text lines for better classification (10 lines)
-        let sample = s.textObs.prefix(10).compactMap { $0.topCandidates(1).first?.string }
+        // Extract ALL recognized text (removed limit to capture full text)
+        let sample = s.textObs.compactMap { $0.topCandidates(1).first?.string }
         s.sampleText = sample.joined(separator: "\n")
 
         // Document-like rectangles

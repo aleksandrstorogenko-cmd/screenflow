@@ -44,7 +44,7 @@ struct TextPreviewCard: View {
             } else {
                 Text(text)
                     .font(.body)
-                    .lineLimit(3)
+                    .lineLimit(10)
                     .padding(.top, 4)
             }
         }

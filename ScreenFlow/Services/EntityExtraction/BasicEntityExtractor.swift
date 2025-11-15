@@ -61,6 +61,33 @@ final class BasicEntityExtractor {
             }
         }
 
+        // Extract additional URLs using regex (NSDataDetector sometimes misses them)
+        let regexUrls = extractURLs(from: text)
+
+        // Merge with existing URLs, avoiding duplicates (normalize by host+path, ignore protocol)
+        var seenUrls = Set<String>()
+        var uniqueUrls: [URL] = []
+
+        // Add existing URLs first
+        for url in entities.urls {
+            let normalized = normalizeURL(url)
+            if !seenUrls.contains(normalized) {
+                seenUrls.insert(normalized)
+                uniqueUrls.append(url)
+            }
+        }
+
+        // Add regex URLs
+        for url in regexUrls {
+            let normalized = normalizeURL(url)
+            if !seenUrls.contains(normalized) {
+                seenUrls.insert(normalized)
+                uniqueUrls.append(url)
+            }
+        }
+
+        entities.urls = uniqueUrls
+
         // Extract emails using regex (NSDataDetector sometimes misses them)
         entities.emails = extractEmails(from: text)
 
@@ -68,6 +95,29 @@ final class BasicEntityExtractor {
     }
 
     // MARK: - Private Helpers
+
+    /// Normalize URL for deduplication (ignores protocol differences)
+    /// - Parameter url: URL to normalize
+    /// - Returns: Normalized string for comparison
+    private func normalizeURL(_ url: URL) -> String {
+        // Combine host + path + query for comparison (ignore protocol and fragment)
+        var parts: [String] = []
+
+        if let host = url.host {
+            parts.append(host.lowercased())
+        }
+
+        let path = url.path
+        if !path.isEmpty && path != "/" {
+            parts.append(path.lowercased())
+        }
+
+        if let query = url.query {
+            parts.append(query.lowercased())
+        }
+
+        return parts.joined(separator: "|")
+    }
 
     private func constructAddress(from components: [NSTextCheckingKey: String]?) -> String {
         guard let components = components else { return "" }
@@ -91,6 +141,59 @@ final class BasicEntityExtractor {
         }
 
         return parts.joined(separator: ", ")
+    }
+
+    private func extractURLs(from text: String) -> [URL] {
+        // Comprehensive URL regex pattern that catches:
+        // - http://, https://, ftp:// URLs
+        // - www. URLs without protocol
+        // - domain.tld URLs (any TLD from 2-24 chars)
+        // - URLs with ports, paths, query params
+        let patterns = [
+            // Full URLs with protocol
+            #"https?://[^\s<>\"{}|\\^`\[\]]+[^\s<>\"{}|\\^`\[\].,;:!?)]"#,
+            #"ftp://[^\s<>\"{}|\\^`\[\]]+[^\s<>\"{}|\\^`\[\].,;:!?)]"#,
+
+            // www. URLs without protocol
+            #"www\.[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.[^\s<>\"{}|\\^`\[\]]+[^\s<>\"{}|\\^`\[\].,;:!?)]"#,
+
+            // Domain.tld patterns - generic TLD (2-24 letters, covers all real TLDs)
+            // Examples: example.com, domain.io, site.co.uk, test.travel, app.museum
+            #"\b[a-zA-Z0-9][a-zA-Z0-9-]*\.[a-zA-Z]{2,24}(?:\.[a-zA-Z]{2,24})?[/\w\-._~:/?#\[\]@!$&'()*+,;=]*"#
+        ]
+
+        var urls: [URL] = []
+
+        for pattern in patterns {
+            guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else {
+                continue
+            }
+
+            let range = NSRange(text.startIndex..., in: text)
+            let matches = regex.matches(in: text, options: [], range: range)
+
+            for match in matches {
+                guard let range = Range(match.range, in: text) else { continue }
+                var urlString = String(text[range])
+
+                // Clean up the URL string
+                urlString = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+
+                // Add https:// if missing for www. or domain.com patterns
+                if !urlString.lowercased().hasPrefix("http://") &&
+                   !urlString.lowercased().hasPrefix("https://") &&
+                   !urlString.lowercased().hasPrefix("ftp://") {
+                    urlString = "https://" + urlString
+                }
+
+                // Try to create URL
+                if let url = URL(string: urlString), url.host != nil {
+                    urls.append(url)
+                }
+            }
+        }
+
+        return urls
     }
 
     private func extractEmails(from text: String) -> [String] {

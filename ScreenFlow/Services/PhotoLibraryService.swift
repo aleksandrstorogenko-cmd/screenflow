@@ -169,6 +169,27 @@ final class PhotoLibraryService: ObservableObject {
         try? modelContext.save()
     }
 
+    /// Re-analyze screenshot (extract entities and generate actions, but keep title)
+    /// - Parameters:
+    ///   - screenshot: Screenshot to re-analyze
+    ///   - modelContext: SwiftData model context
+    func reanalyzeScreenshot(for screenshot: Screenshot, modelContext: ModelContext) async {
+        // Get the asset
+        guard let asset = getAsset(for: screenshot.assetIdentifier) else { return }
+
+        // Wait for a processing slot (limits concurrent extractions)
+        await extractionQueue.waitForSlot()
+
+        // Re-analyze (extract entities and generate actions)
+        await reanalyzeScreenshotData(screenshot, asset: asset)
+
+        // Release the slot
+        await extractionQueue.releaseSlot()
+
+        // Save the context
+        try? modelContext.save()
+    }
+
     /// Analyze screenshot using Vision and set title/kind fields
     /// Also extracts entities and generates smart actions
     /// - Parameters:
@@ -234,6 +255,81 @@ final class PhotoLibraryService: ObservableObject {
                         } catch {
                             // If analysis fails, leave title and kind as nil
                             print("Failed to analyze screenshot: \(error)")
+                            continuation.resume()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Re-analyze screenshot data (extract entities and generate actions, but keep title)
+    /// - Parameters:
+    ///   - screenshot: Screenshot model to update
+    ///   - asset: PHAsset to analyze
+    private func reanalyzeScreenshotData(_ screenshot: Screenshot, asset: PHAsset) async {
+        await withCheckedContinuation { continuation in
+            autoreleasepool {
+                let options = PHImageRequestOptions()
+                options.deliveryMode = .highQualityFormat
+                options.isSynchronous = false  // Async to prevent blocking
+                options.resizeMode = .exact
+
+                // Good balance between quality and memory (Vision needs clear text)
+                let targetSize = CGSize(width: 1536, height: 1536)
+
+                imageManager.requestImage(
+                    for: asset,
+                    targetSize: targetSize,
+                    contentMode: .aspectFit,
+                    options: options
+                ) { [weak self] image, _ in
+                    autoreleasepool {
+                        guard let self = self,
+                              let image = image,
+                              let cgImage = image.cgImage else {
+                            continuation.resume()
+                            return
+                        }
+
+                        // Re-run Vision analysis to get fresh data
+                        do {
+                            let result = try self.titleGeneratorService.makeTitle(
+                                for: cgImage,
+                                captureDate: screenshot.creationDate
+                            )
+                            // Keep existing title and kind, just get the full text and classifications
+
+                            // Extract entities from the screenshot
+                            Task {
+                                // Clear old extracted data and actions
+                                screenshot.extractedData = nil
+                                screenshot.smartActions.removeAll()
+
+                                let extractedData = await self.entityExtractionService.extractEntities(
+                                    from: result.fullText,
+                                    sceneClassifications: result.sceneClassifications,
+                                    cgImage: cgImage
+                                )
+
+                                // Link to screenshot
+                                extractedData.screenshot = screenshot
+                                screenshot.extractedData = extractedData
+
+                                // Generate smart actions
+                                let actions = self.actionGenerationService.generateActions(from: extractedData)
+
+                                // Link actions to screenshot
+                                for action in actions {
+                                    action.screenshot = screenshot
+                                    screenshot.smartActions.append(action)
+                                }
+
+                                continuation.resume()
+                            }
+                        } catch {
+                            // If analysis fails, keep existing data
+                            print("Failed to re-analyze screenshot: \(error)")
                             continuation.resume()
                         }
                     }

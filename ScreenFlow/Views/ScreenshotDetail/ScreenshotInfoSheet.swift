@@ -30,14 +30,6 @@ struct ScreenshotInfoSheet: View {
                     Divider()
                         .padding(.horizontal)
 
-                    // Smart Actions (if available)
-                    if !screenshot.smartActions.isEmpty {
-                        SmartActionsSection(actions: screenshot.smartActions, screenshot: screenshot)
-
-                        Divider()
-                            .padding(.horizontal)
-                    }
-
                     // Extracted Data (if available)
                     if let extractedData = screenshot.extractedData {
                         ExtractedDataSection(data: extractedData)

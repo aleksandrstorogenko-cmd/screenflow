@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 import Contacts
 import ContactsUI
 import EventKit
@@ -21,6 +22,9 @@ struct ScreenshotDetailView: View {
 
     /// Environment dismiss action
     @Environment(\.dismiss) private var dismiss
+
+    /// SwiftData model context
+    @Environment(\.modelContext) private var modelContext
 
     /// Current index
     @State private var currentIndex: Int
@@ -45,6 +49,12 @@ struct ScreenshotDetailView: View {
     /// Contact to save
     @State private var contactToSave: CNMutableContact?
     @State private var showingContactView = false
+
+    /// Photo library service
+    private let photoLibraryService = PhotoLibraryService.shared
+
+    /// Re-analysis task for cancellation
+    @State private var reanalysisTask: Task<Void, Never>?
 
     init(screenshot: Screenshot, allScreenshots: [Screenshot]) {
         self.screenshot = screenshot
@@ -76,10 +86,16 @@ struct ScreenshotDetailView: View {
                 .onAppear {
                     scrollPosition = currentIndex
                     proxy.scrollTo(currentIndex, anchor: .leading)
+
+                    // Re-analyze the initial screenshot with debouncing
+                    scheduleReanalysis()
                 }
                 .onChange(of: scrollPosition) { oldValue, newValue in
                     if let newValue = newValue {
                         currentIndex = newValue
+
+                        // Re-analyze when swiping to a different screenshot with debouncing
+                        scheduleReanalysis()
                     }
                 }
             }
@@ -87,6 +103,10 @@ struct ScreenshotDetailView: View {
         .background(Color.black)
         .ignoresSafeArea()
         .navigationBarTitleDisplayMode(.inline)
+        .onDisappear {
+            // Cancel any ongoing re-analysis when leaving the view
+            reanalysisTask?.cancel()
+        }
         .toolbar {
             ToolbarItem(placement: .principal) {
                 Text("")
@@ -229,6 +249,30 @@ struct ScreenshotDetailView: View {
     }
 
     // MARK: - Methods
+
+    /// Schedule re-analysis with debouncing to prevent UI freeze
+    private func scheduleReanalysis() {
+        // Cancel any existing analysis task
+        reanalysisTask?.cancel()
+
+        // Schedule new analysis after a short delay
+        reanalysisTask = Task {
+            // Wait 500ms before starting analysis (debouncing)
+            try? await Task.sleep(nanoseconds: 500_000_000)
+
+            // Check if task was cancelled during the delay
+            guard !Task.isCancelled else { return }
+
+            // Get the current screenshot
+            guard let currentScreenshot = allScreenshots[safe: currentIndex] else { return }
+
+            // Perform re-analysis in background
+            await photoLibraryService.reanalyzeScreenshot(
+                for: currentScreenshot,
+                modelContext: modelContext
+            )
+        }
+    }
 
     /// Share screenshot (placeholder - action to be added later)
     private func shareScreenshot() {
