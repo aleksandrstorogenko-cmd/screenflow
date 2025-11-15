@@ -141,6 +141,7 @@ struct ScreenshotDetailView: View {
             )
             .presentationDetents([.height(155), .large])
             .presentationDragIndicator(.visible)
+            .interactiveDismissDisabled(true)
             .presentationBackgroundInteraction(.enabled)
         }
         .sheet(isPresented: $showActionsSheet) {
