@@ -1,8 +1,8 @@
 //
-//  TitleGeneratorService.swift
+//  ScreenshotAnalysisService.swift
 //  ScreenFlow
 //
-//  Service for generating titles and classifying screenshots using Vision framework
+//  Service for analyzing screenshots, performing classification, OCR, and generating titles using Vision framework
 //
 
 import Vision
@@ -36,8 +36,8 @@ struct TitleResult {
     let sceneClassifications: [(identifier: String, confidence: Float)]
 }
 
-/// Service for analyzing screenshots and generating titles
-final class TitleGeneratorService {
+/// Service for analyzing screenshots: performs classification, OCR, scene analysis, and title generation
+final class ScreenshotAnalysisService {
 
     /// Internal signals collected from Vision analysis
     struct Signals {

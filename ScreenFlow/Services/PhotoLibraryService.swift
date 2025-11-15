@@ -25,8 +25,8 @@ final class PhotoLibraryService: ObservableObject {
     /// Permission service dependency
     private let permissionService = PermissionService.shared
 
-    /// Title generator service dependency
-    private let titleGeneratorService = TitleGeneratorService()
+    /// Screenshot analysis service dependency
+    private let screenshotAnalysisService = ScreenshotAnalysisService()
 
     /// Entity extraction service dependency
     private let entityExtractionService = EntityExtractionService.shared
@@ -220,9 +220,9 @@ final class PhotoLibraryService: ObservableObject {
                             return
                         }
 
-                        // Generate title using Vision
+                        // Analyze screenshot using Vision
                         do {
-                            let result = try self.titleGeneratorService.makeTitle(
+                            let result = try self.screenshotAnalysisService.makeTitle(
                                 for: cgImage,
                                 captureDate: screenshot.creationDate
                             )
@@ -294,7 +294,7 @@ final class PhotoLibraryService: ObservableObject {
 
                         // Re-run Vision analysis to get fresh data
                         do {
-                            let result = try self.titleGeneratorService.makeTitle(
+                            let result = try self.screenshotAnalysisService.makeTitle(
                                 for: cgImage,
                                 captureDate: screenshot.creationDate
                             )
