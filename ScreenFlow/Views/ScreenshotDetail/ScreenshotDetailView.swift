@@ -116,6 +116,12 @@ struct ScreenshotDetailView: View {
                 }
             }
         }
+        .background(
+            BackSwipeObserver {
+                // Dismiss info sheet when swipe back gesture begins
+                showInfoSheet = false
+            }
+        )
         .ignoresSafeArea()
         .navigationBarTitleDisplayMode(.inline)
         .onDisappear {
