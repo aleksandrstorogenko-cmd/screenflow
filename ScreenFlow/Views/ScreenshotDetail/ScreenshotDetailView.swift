@@ -11,6 +11,7 @@ import Contacts
 import ContactsUI
 import EventKit
 import Photos
+import SafariServices
 
 /// Full-screen view for displaying a screenshot with swipe navigation
 struct ScreenshotDetailView: View {
@@ -49,6 +50,11 @@ struct ScreenshotDetailView: View {
     /// Contact to save
     @State private var contactToSave: CNMutableContact?
     @State private var showingContactView = false
+
+    /// Bookmark selection state
+    @State private var showBookmarkSelection = false
+    @State private var bookmarkOptions: [BookmarkLink] = []
+    @State private var selectedBookmarkIDs: Set<BookmarkLink.ID> = []
 
     /// Photo library service
     private let photoLibraryService = PhotoLibraryService.shared
@@ -240,6 +246,14 @@ struct ScreenshotDetailView: View {
                     showingContactView = false
                 }
             }
+        }
+        .sheet(isPresented: $showBookmarkSelection) {
+            BookmarkSelectionSheet(
+                links: bookmarkOptions,
+                selectedIDs: $selectedBookmarkIDs,
+                onCancel: { showBookmarkSelection = false },
+                onSave: { saveSelectedBookmarks() }
+            )
         }
         .alert(alertTitle, isPresented: $showingAlert) {
             Button("OK", role: .cancel) { }
@@ -496,30 +510,140 @@ struct ScreenshotDetailView: View {
             return
         }
 
-        guard let firstURL = extracted.urls.first else {
+        let validURLs = normalizedURLs(from: extracted)
+
+        guard !validURLs.isEmpty else {
             showAlert(title: "No URL Found", message: "No website link found on this screenshot")
             return
         }
 
-        guard let url = URL(string: firstURL) else {
-            showAlert(title: "Invalid URL", message: "The URL format is invalid")
+        bookmarkOptions = validURLs.map { BookmarkLink(url: $0) }
+        selectedBookmarkIDs = Set(bookmarkOptions.map(\.id))
+        showBookmarkSelection = true
+    }
+
+    private func saveSelectedBookmarks() {
+        let urlsToSave = bookmarkOptions
+            .filter { selectedBookmarkIDs.contains($0.id) }
+            .map(\.url)
+
+        print("🔖 Selected \(selectedBookmarkIDs.count) bookmark(s) from \(bookmarkOptions.count) total")
+        print("🔖 URLs to save: \(urlsToSave.count)")
+
+        guard !urlsToSave.isEmpty else {
+            showBookmarkSelection = false
+            showAlert(title: "No URL Selected", message: "Select at least one link to save")
             return
         }
 
-        let readingListURL = URL(string: "x-safari-reading-list:\(url.absoluteString)")
-        if let readingListURL = readingListURL {
-            UIApplication.shared.open(readingListURL) { success in
-                if success {
-                    DispatchQueue.main.async {
-                        self.showAlert(title: "Bookmark Saved", message: "URL added to Safari Reading List")
+        showBookmarkSelection = false
+
+        Task {
+            await addBookmarksToReadingList(urlsToSave)
+        }
+    }
+
+    private func addBookmarksToReadingList(_ urls: [URL]) async {
+        print("📚 Attempting to save \(urls.count) bookmark(s) to Reading List:")
+        for (index, url) in urls.enumerated() {
+            print("  \(index + 1). \(url.absoluteString)")
+        }
+
+        guard let readingList = SSReadingList.default() else {
+            await MainActor.run {
+                showAlert(title: "Reading List Unavailable", message: "Safari Reading List cannot be accessed right now")
+            }
+            return
+        }
+
+        var savedCount = 0
+        var failureMessages: [String] = []
+
+        for (index, url) in urls.enumerated() {
+            // Safari Reading List requires main thread access
+            await MainActor.run {
+                do {
+                    try readingList.addItem(with: url, title: url.host, previewText: nil)
+                    savedCount += 1
+                    print("✅ Saved bookmark \(index + 1)/\(urls.count): \(url.absoluteString)")
+                } catch {
+                    let nsError = error as NSError
+                    let reason: String
+                    if nsError.domain == SSReadingListErrorDomain,
+                       let code = SSReadingListError.Code(rawValue: nsError.code) {
+                        switch code {
+                        case .urlSchemeNotAllowed:
+                            reason = "URL scheme not allowed"
+                        default:
+                            reason = nsError.localizedDescription
+                        }
+                    } else {
+                        reason = nsError.localizedDescription
                     }
-                } else {
-                    DispatchQueue.main.async {
-                        self.showAlert(title: "Unable to Save", message: "Could not add to Reading List. URL: \(firstURL)")
-                    }
+                    let shortURL = url.host ?? url.absoluteString
+                    failureMessages.append("• \(shortURL): \(reason)")
+                    print("❌ Failed to save bookmark \(index + 1)/\(urls.count): \(url.absoluteString) - \(reason)")
                 }
             }
+
+            // Safari Reading List needs significant delay between insertions to process them reliably
+            // 150ms is too fast and causes Safari to silently drop URLs
+            if index < urls.count - 1 {
+                try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second delay
+            }
         }
+
+        await MainActor.run {
+            if savedCount == urls.count {
+                let message = savedCount == 1
+                    ? "URL added to Safari Reading List"
+                    : "\(savedCount) URLs added to Safari Reading List"
+                showAlert(title: "Bookmarks Saved", message: message)
+            } else if savedCount > 0 {
+                let details = failureMessages.joined(separator: "\n")
+                showAlert(
+                    title: "Partially Saved",
+                    message: "Saved \(savedCount) of \(urls.count) link(s).\n\nFailed:\n\(details)"
+                )
+            } else {
+                let details = failureMessages.isEmpty ? "Unknown error" : failureMessages.joined(separator: "\n")
+                showAlert(title: "Unable to Save", message: "Could not add to Reading List:\n\(details)")
+            }
+        }
+    }
+
+    private func normalizedURLs(from data: ExtractedData) -> [URL] {
+        var seen = Set<URL>()
+        var results: [URL] = []
+
+        for rawValue in data.urls {
+            guard let normalized = normalizedURL(from: rawValue) else { continue }
+
+            if seen.insert(normalized).inserted {
+                results.append(normalized)
+            }
+        }
+
+        return results
+    }
+
+    private func normalizedURL(from rawValue: String) -> URL? {
+        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+
+        var candidate = trimmed
+        let lowercased = candidate.lowercased()
+        if !lowercased.hasPrefix("http://") && !lowercased.hasPrefix("https://") {
+            candidate = "https://\(candidate)"
+        }
+
+        guard let url = URL(string: candidate),
+              let scheme = url.scheme?.lowercased(),
+              scheme == "http" || scheme == "https" else {
+            return nil
+        }
+
+        return url
     }
 
     private func performOpenURL(_ screenshot: Screenshot) {
@@ -720,4 +844,67 @@ struct ContactViewController: UIViewControllerRepresentable {
             onDismiss()
         }
     }
+}
+
+// MARK: - Bookmark Selection Sheet
+
+struct BookmarkSelectionSheet: View {
+    let links: [BookmarkLink]
+    @Binding var selectedIDs: Set<BookmarkLink.ID>
+    let onCancel: () -> Void
+    let onSave: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if links.isEmpty {
+                    Text("No links detected")
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                } else {
+                    ForEach(links) { link in
+                        Toggle(isOn: binding(for: link)) {
+                            Text(link.url.absoluteString)
+                                .font(.body)
+                                .textSelection(.enabled)
+                                .lineLimit(2)
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Select Links")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        onCancel()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        onSave()
+                    }
+                    .disabled(selectedIDs.isEmpty)
+                }
+            }
+        }
+    }
+
+    private func binding(for link: BookmarkLink) -> Binding<Bool> {
+        Binding(
+            get: { selectedIDs.contains(link.id) },
+            set: { isSelected in
+                if isSelected {
+                    selectedIDs.insert(link.id)
+                } else {
+                    selectedIDs.remove(link.id)
+                }
+            }
+        )
+    }
+}
+
+struct BookmarkLink: Identifiable, Hashable {
+    let id = UUID()
+    let url: URL
 }
