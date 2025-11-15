@@ -7,9 +7,6 @@
 
 import SwiftUI
 import SwiftData
-import Contacts
-import ContactsUI
-import EventKit
 import Photos
 import SafariServices
 
@@ -48,10 +45,6 @@ struct ScreenshotDetailView: View {
     @State private var showingAlert = false
     @State private var alertTitle = ""
     @State private var alertMessage = ""
-
-    /// Contact to save
-    @State private var contactToSave: CNMutableContact?
-    @State private var showingContactView = false
 
     /// Bookmark selection state
     @State private var showBookmarkSelection = false
@@ -153,13 +146,6 @@ struct ScreenshotDetailView: View {
                 UniversalActionSheet(screenshot: screenshot)
             }
         }
-        .sheet(isPresented: $showingContactView) {
-            if let contact = contactToSave {
-                ContactViewController(contact: contact) {
-                    showingContactView = false
-                }
-            }
-        }
         .sheet(isPresented: $showBookmarkSelection) {
             BookmarkSelectionSheet(
                 links: bookmarkOptions,
@@ -187,24 +173,30 @@ struct ScreenshotDetailView: View {
     // MARK: - Action Execution Methods
 
     private func performSaveContact(_ screenshot: Screenshot) {
-        switch ContactActionHelper.prepareContact(from: screenshot) {
-        case .success(let contact):
-            contactToSave = contact
-            showingContactView = true
-        case .failure(let title, let message):
-            showAlert(title: title, message: message)
+        Task {
+            let result = await ContactActionHelper.saveContact(from: screenshot)
+            await MainActor.run {
+                switch result {
+                case .success:
+                    // Contact view is presented by ActionExecutor
+                    break
+                case .failure(let title, let message):
+                    showAlert(title: title, message: message)
+                }
+            }
         }
     }
 
     private func performCreateNote(_ screenshot: Screenshot) {
-        switch TextActionHelper.createNote(from: screenshot) {
-        case .success(let title, let message):
-            showAlert(title: title, message: message)
-        case .failure(let title, let message):
-            showAlert(title: title, message: message)
-        case .presentShareSheet(let text):
-            if !TextActionHelper.presentShareSheet(with: text) {
-                showAlert(title: "Cannot Share", message: "Unable to present share sheet")
+        Task {
+            let result = await TextActionHelper.createNote(from: screenshot)
+            await MainActor.run {
+                switch result {
+                case .success(let title, let message):
+                    showAlert(title: title, message: message)
+                case .failure(let title, let message):
+                    showAlert(title: title, message: message)
+                }
             }
         }
     }
@@ -273,49 +265,72 @@ struct ScreenshotDetailView: View {
     }
 
     private func performOpenURL(_ screenshot: Screenshot) {
-        switch URLActionHelper.openURL(from: screenshot) {
-        case .success:
-            break
-        case .failure(let title, let message):
-            showAlert(title: title, message: message)
+        Task {
+            let result = await URLActionHelper.openURL(from: screenshot)
+            await MainActor.run {
+                switch result {
+                case .success:
+                    break
+                case .failure(let title, let message):
+                    showAlert(title: title, message: message)
+                }
+            }
         }
     }
 
     private func performOpenMap(_ screenshot: Screenshot) {
-        switch MapActionHelper.openMap(from: screenshot) {
-        case .success:
-            break
-        case .failure(let title, let message):
-            showAlert(title: title, message: message)
+        Task {
+            let result = await MapActionHelper.openMap(from: screenshot)
+            await MainActor.run {
+                switch result {
+                case .success:
+                    break
+                case .failure(let title, let message):
+                    showAlert(title: title, message: message)
+                }
+            }
         }
     }
 
     private func performMakeCall(_ screenshot: Screenshot) {
-        switch CommunicationActionHelper.makeCall(from: screenshot) {
-        case .success:
-            break
-        case .failure(let title, let message):
-            showAlert(title: title, message: message)
+        Task {
+            let result = await CommunicationActionHelper.makeCall(from: screenshot)
+            await MainActor.run {
+                switch result {
+                case .success:
+                    break
+                case .failure(let title, let message):
+                    showAlert(title: title, message: message)
+                }
+            }
         }
     }
 
     private func performSendEmail(_ screenshot: Screenshot) {
-        switch CommunicationActionHelper.sendEmail(from: screenshot) {
-        case .success:
-            break
-        case .failure(let title, let message):
-            showAlert(title: title, message: message)
+        Task {
+            let result = await CommunicationActionHelper.sendEmail(from: screenshot)
+            await MainActor.run {
+                switch result {
+                case .success:
+                    break
+                case .failure(let title, let message):
+                    showAlert(title: title, message: message)
+                }
+            }
         }
     }
 
     private func performCopyText(_ screenshot: Screenshot) {
-        switch TextActionHelper.copyText(from: screenshot) {
-        case .success(let title, let message):
-            showAlert(title: title, message: message)
-        case .failure(let title, let message):
-            showAlert(title: title, message: message)
-        case .presentShareSheet:
-            break // Not applicable for copy
+        Task {
+            let result = await TextActionHelper.copyText(from: screenshot)
+            await MainActor.run {
+                switch result {
+                case .success(let title, let message):
+                    showAlert(title: title, message: message)
+                case .failure(let title, let message):
+                    showAlert(title: title, message: message)
+                }
+            }
         }
     }
 

@@ -2,14 +2,13 @@
 //  CalendarActionHelper.swift
 //  ScreenFlow
 //
-//  Helper for calendar-related actions
+//  Helper for calendar-related actions using ActionExecutor
 //
 
 import Foundation
-import EventKit
 
 /// Helper for creating calendar events from screenshots
-/// TODO: Refactor to use ActionExecutor service instead of inline implementation
+@MainActor
 struct CalendarActionHelper {
 
     /// Result of calendar action
@@ -18,7 +17,7 @@ struct CalendarActionHelper {
         case failure(title: String, message: String)
     }
 
-    /// Add event to calendar from screenshot
+    /// Add event to calendar from screenshot using ActionExecutor
     static func addToCalendar(from screenshot: Screenshot) async -> Result {
         guard let extracted = screenshot.extractedData else {
             return .failure(title: "No Data Available", message: "This screenshot hasn't been analyzed yet")
@@ -28,26 +27,16 @@ struct CalendarActionHelper {
             return .failure(title: "No Event Information", message: "No event details found on this screenshot")
         }
 
-        let eventStore = EKEventStore()
-        do {
-            let granted = try await eventStore.requestFullAccessToEvents()
-            if granted {
-                let event = EKEvent(eventStore: eventStore)
-                event.title = extracted.eventName ?? "Event from Screenshot"
-                event.startDate = extracted.eventDate ?? Date()
-                event.endDate = extracted.eventEndDate ?? event.startDate.addingTimeInterval(3600)
-                event.location = extracted.eventLocation
-                event.notes = extracted.eventDescription
-                event.calendar = eventStore.defaultCalendarForNewEvents
+        // Create SmartAction
+        let action = SmartActionFactory.createCalendarAction(from: extracted)
 
-                try eventStore.save(event, span: .thisEvent)
+        // Execute using ActionExecutor
+        let success = await ActionExecutor.shared.execute(action)
 
-                return .success(title: "Event Created", message: "Event added to calendar successfully")
-            } else {
-                return .failure(title: "Permission Denied", message: "Calendar access is required")
-            }
-        } catch {
-            return .failure(title: "Error", message: "Failed to create event: \(error.localizedDescription)")
+        if success {
+            return .success(title: "Event Created", message: "Event added to calendar successfully")
+        } else {
+            return .failure(title: "Failed to Add Event", message: "Could not add event to calendar")
         }
     }
 }

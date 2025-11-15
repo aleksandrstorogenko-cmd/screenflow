@@ -2,14 +2,13 @@
 //  CommunicationActionHelper.swift
 //  ScreenFlow
 //
-//  Helper for communication actions (call, email)
+//  Helper for communication actions (call, email) using ActionExecutor
 //
 
 import Foundation
-import UIKit
 
 /// Helper for executing communication actions
-/// TODO: Refactor to use ActionExecutor service instead of inline implementation
+@MainActor
 struct CommunicationActionHelper {
 
     /// Result of communication action
@@ -18,8 +17,8 @@ struct CommunicationActionHelper {
         case failure(title: String, message: String)
     }
 
-    /// Make a phone call
-    static func makeCall(from screenshot: Screenshot) -> Result {
+    /// Make a phone call using ActionExecutor
+    static func makeCall(from screenshot: Screenshot) async -> Result {
         guard let extracted = screenshot.extractedData else {
             return .failure(title: "No Data Available", message: "This screenshot hasn't been analyzed yet")
         }
@@ -30,22 +29,21 @@ struct CommunicationActionHelper {
             return .failure(title: "No Phone Number", message: "No phone number found on this screenshot")
         }
 
-        let cleaned = phoneNumber.components(separatedBy: CharacterSet.decimalDigits.inverted).joined()
+        // Create SmartAction
+        let action = SmartActionFactory.createCallAction(phoneNumber: phoneNumber)
 
-        guard !cleaned.isEmpty else {
-            return .failure(title: "Invalid Phone Number", message: "The phone number format is invalid")
-        }
+        // Execute using ActionExecutor
+        let success = await ActionExecutor.shared.execute(action)
 
-        if let url = URL(string: "tel://\(cleaned)") {
-            UIApplication.shared.open(url)
+        if success {
             return .success
         } else {
-            return .failure(title: "Cannot Make Call", message: "Unable to initiate phone call")
+            return .failure(title: "Failed to Make Call", message: "Could not initiate phone call")
         }
     }
 
-    /// Send an email
-    static func sendEmail(from screenshot: Screenshot) -> Result {
+    /// Send an email using ActionExecutor
+    static func sendEmail(from screenshot: Screenshot) async -> Result {
         guard let extracted = screenshot.extractedData else {
             return .failure(title: "No Data Available", message: "This screenshot hasn't been analyzed yet")
         }
@@ -56,11 +54,16 @@ struct CommunicationActionHelper {
             return .failure(title: "No Email Address", message: "No email address found on this screenshot")
         }
 
-        if let url = URL(string: "mailto:\(email)") {
-            UIApplication.shared.open(url)
+        // Create SmartAction
+        let action = SmartActionFactory.createEmailAction(email: email)
+
+        // Execute using ActionExecutor
+        let success = await ActionExecutor.shared.execute(action)
+
+        if success {
             return .success
         } else {
-            return .failure(title: "Invalid Email", message: "The email address format is invalid")
+            return .failure(title: "Failed to Send Email", message: "Could not open email client")
         }
     }
 }

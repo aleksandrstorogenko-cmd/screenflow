@@ -2,14 +2,13 @@
 //  URLActionHelper.swift
 //  ScreenFlow
 //
-//  Helper for URL-related actions
+//  Helper for URL-related actions using ActionExecutor
 //
 
 import Foundation
-import UIKit
 
 /// Helper for opening URLs
-/// TODO: Refactor to use ActionExecutor service instead of inline implementation
+@MainActor
 struct URLActionHelper {
 
     /// Result of URL action
@@ -18,8 +17,8 @@ struct URLActionHelper {
         case failure(title: String, message: String)
     }
 
-    /// Open a URL from screenshot
-    static func openURL(from screenshot: Screenshot) -> Result {
+    /// Open a URL from screenshot using ActionExecutor
+    static func openURL(from screenshot: Screenshot) async -> Result {
         guard let extracted = screenshot.extractedData else {
             return .failure(title: "No Data Available", message: "This screenshot hasn't been analyzed yet")
         }
@@ -28,11 +27,16 @@ struct URLActionHelper {
             return .failure(title: "No URL Found", message: "No website link found on this screenshot")
         }
 
-        guard let url = URL(string: firstURL) else {
-            return .failure(title: "Invalid URL", message: "The URL format is invalid")
-        }
+        // Create SmartAction
+        let action = SmartActionFactory.createLinkAction(url: firstURL)
 
-        UIApplication.shared.open(url)
-        return .success
+        // Execute using ActionExecutor
+        let success = await ActionExecutor.shared.execute(action)
+
+        if success {
+            return .success
+        } else {
+            return .failure(title: "Failed to Open URL", message: "Could not open the link")
+        }
     }
 }
