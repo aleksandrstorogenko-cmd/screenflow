@@ -132,16 +132,11 @@ struct ScreenshotDetailView: View {
                 Button(action: {
                     // Dismiss info sheet before navigating back
                     showInfoSheet = false
-                    // Small delay to allow sheet to dismiss smoothly
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                        dismiss()
-                    }
+                    dismiss()
                 }) {
                     HStack(spacing: 4) {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 17, weight: .semibold))
-                        Text("Back")
-                            .font(.system(size: 17))
                     }
                 }
             }
