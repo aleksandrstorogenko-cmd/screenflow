@@ -66,6 +66,7 @@ struct ScreenshotListView: View {
                     // Main list view
                     ScreenshotListContentView(
                         screenshots: filteredScreenshots,
+                        allScreenshots: allFilteredScreenshots,
                         selectedScreenshots: $selectedScreenshots,
                         onDelete: deleteScreenshot,
                         onLoadMore: loadMoreItems
@@ -133,6 +134,16 @@ struct ScreenshotListView: View {
             searchText: searchText,
             showTodayOnly: showTodayOnly,
             limit: displayLimit
+        )
+    }
+
+    /// All filtered screenshots without pagination (for navigation)
+    private var allFilteredScreenshots: [Screenshot] {
+        screenshotService.filterScreenshots(
+            allScreenshots,
+            searchText: searchText,
+            showTodayOnly: showTodayOnly,
+            limit: Int.max
         )
     }
 

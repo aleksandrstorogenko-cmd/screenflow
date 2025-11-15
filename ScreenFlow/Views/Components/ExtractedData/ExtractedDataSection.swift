@@ -66,7 +66,7 @@ struct ExtractedDataSection: View {
     }
 
     private var hasGeneralEntities: Bool {
-        !data.urls.isEmpty || !data.emails.isEmpty || !data.phoneNumbers.isEmpty || !data.addresses.isEmpty
+        !data.emails.isEmpty || !data.phoneNumbers.isEmpty || !data.addresses.isEmpty
     }
 
     private var hasAnyData: Bool {

@@ -145,14 +145,14 @@ final class BasicEntityExtractor {
 
     private func extractURLs(from text: String) -> [URL] {
         // Comprehensive URL regex pattern that catches:
-        // - http://, https://, ftp:// URLs
+        // - http://, https://, ftp:// URLs with full paths
         // - www. URLs without protocol
         // - domain.tld URLs (any TLD from 2-24 chars)
         // - URLs with ports, paths, query params
         let patterns = [
-            // Full URLs with protocol
-            #"https?://[^\s<>\"{}|\\^`\[\]]+[^\s<>\"{}|\\^`\[\].,;:!?)]"#,
-            #"ftp://[^\s<>\"{}|\\^`\[\]]+[^\s<>\"{}|\\^`\[\].,;:!?)]"#,
+            // Full URLs with protocol - improved to capture all path characters
+            #"https?://[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9](?::[0-9]+)?(?:/[^\s<>\"{}|\\^`\[\]]*)?(?:\?[^\s<>\"{}|\\^`\[\]]*)?(?:#[^\s<>\"{}|\\^`\[\]]*)?|https?://[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]/[a-zA-Z0-9_\-/]+"#,
+            #"ftp://[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9](?::[0-9]+)?(?:/[^\s]*)?|ftp://[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]/[a-zA-Z0-9_\-/]+"#,
 
             // www. URLs without protocol
             #"www\.[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.[^\s<>\"{}|\\^`\[\]]+[^\s<>\"{}|\\^`\[\].,;:!?)]"#,
@@ -176,8 +176,15 @@ final class BasicEntityExtractor {
                 guard let range = Range(match.range, in: text) else { continue }
                 var urlString = String(text[range])
 
-                // Clean up the URL string
+                // Clean up the URL string - remove trailing punctuation that shouldn't be part of URL
                 urlString = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
+
+                // Remove common trailing punctuation
+                while urlString.last == "." || urlString.last == "," || urlString.last == ";" ||
+                      urlString.last == ":" || urlString.last == "!" || urlString.last == "?" ||
+                      urlString.last == ")" || urlString.last == "]" {
+                    urlString.removeLast()
+                }
 
                 // Add https:// if missing for www. or domain.com patterns
                 if !urlString.lowercased().hasPrefix("http://") &&

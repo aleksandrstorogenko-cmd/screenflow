@@ -78,7 +78,7 @@ final class ScreenshotClassifier {
 
     /// Classify screenshot type using ML model
     /// Falls back to heuristic classification if model not available
-    func classify(_ cgImage: CGImage) async -> ScreenshotClassification {
+    func classify(_ cgImage: CGImage, text: String? = nil) async -> ScreenshotClassification {
         // Try ML-based classification first
         if isModelAvailable {
             if let mlResult = await classifyWithML(cgImage) {
@@ -89,7 +89,7 @@ final class ScreenshotClassifier {
 
         // Fallback to heuristic classification
         print("⚠️ ML model not available, using heuristic classification")
-        return await classifyWithHeuristics(cgImage)
+        return await classifyWithHeuristics(cgImage, text: text)
     }
 
     // MARK: - ML Classification
@@ -149,7 +149,12 @@ final class ScreenshotClassifier {
     // MARK: - Heuristic Fallback
 
     /// Classify using heuristics (fallback when ML model not available)
-    private func classifyWithHeuristics(_ cgImage: CGImage) async -> ScreenshotClassification {
+    private func classifyWithHeuristics(_ cgImage: CGImage, text: String?) async -> ScreenshotClassification {
+        // First check if text indicates social media (high confidence)
+        if let text = text, let socialMediaResult = detectSocialMedia(from: text) {
+            return socialMediaResult
+        }
+
         // Use existing Vision scene classification as fallback
         return await withCheckedContinuation { continuation in
             let request = VNClassifyImageRequest { request, error in
@@ -164,7 +169,7 @@ final class ScreenshotClassifier {
                 }
 
                 // Map scene classification to screenshot types
-                let type = self.mapSceneToScreenshotType(results)
+                let type = self.mapSceneToScreenshotType(results, text: text)
                 let confidence = results.first?.confidence ?? 0.0
 
                 continuation.resume(returning: ScreenshotClassification(
@@ -188,7 +193,7 @@ final class ScreenshotClassifier {
     }
 
     /// Map Vision scene classification to screenshot types
-    private func mapSceneToScreenshotType(_ results: [VNClassificationObservation]) -> ScreenshotType {
+    private func mapSceneToScreenshotType(_ results: [VNClassificationObservation], text: String?) -> ScreenshotType {
         let topScenes = results.prefix(3).map { $0.identifier.lowercased() }
 
         // Check for specific patterns
@@ -214,5 +219,76 @@ final class ScreenshotClassifier {
         }
 
         return .other
+    }
+
+    /// Detect social media posts from text patterns
+    private func detectSocialMedia(from text: String) -> ScreenshotClassification? {
+        let lowerText = text.lowercased()
+        let lines = text.components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+
+        var confidence: Float = 0.0
+        var indicators = 0
+
+        // Check for social media UI indicators
+        let socialMediaIndicators = [
+            "views", "likes", "comments", "share", "retweet", "reply",
+            "follow", "followers", "following", "subscribe", "subscribers",
+            "ago", "posted", "shared", "retweeted", "commented"
+        ]
+
+        for indicator in socialMediaIndicators {
+            if lowerText.contains(indicator) {
+                indicators += 1
+                confidence += 0.15
+            }
+        }
+
+        // Check for post timestamp patterns at the beginning
+        if let firstLine = lines.first {
+            let timestampPatterns = [
+                #"\d{1,2}/\d{1,2}/\d{2,4}"#,  // 27/1/25
+                #"\d{1,2}[hmd]\s*ago"#,         // 2h ago, 5m ago, 3d ago
+                #"(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+\d{1,2}"#  // Jan 27
+            ]
+
+            for pattern in timestampPatterns {
+                if firstLine.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil,
+                   firstLine.count < 20 {
+                    confidence += 0.3
+                    indicators += 1
+                    break
+                }
+            }
+        }
+
+        // Check for social media platform names
+        let platformNames = [
+            "twitter", "facebook", "instagram", "threads", "tiktok",
+            "linkedin", "reddit", "youtube", "snapchat", "mastodon"
+        ]
+
+        for platform in platformNames {
+            if lowerText.contains(platform) {
+                confidence += 0.4
+                indicators += 2
+                break
+            }
+        }
+
+        // Need at least 2 indicators or high confidence
+        guard indicators >= 2 || confidence >= 0.5 else {
+            return nil
+        }
+
+        // Cap confidence at 1.0
+        confidence = min(confidence, 1.0)
+
+        return ScreenshotClassification(
+            type: .socialMediaPost,
+            confidence: confidence,
+            allPredictions: [(.socialMediaPost, confidence)]
+        )
     }
 }

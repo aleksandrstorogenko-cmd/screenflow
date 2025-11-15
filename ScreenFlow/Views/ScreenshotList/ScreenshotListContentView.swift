@@ -10,8 +10,11 @@ import SwiftData
 
 /// View displaying the scrollable list of screenshots
 struct ScreenshotListContentView: View {
-    /// Screenshots to display
+    /// Screenshots to display (paginated)
     let screenshots: [Screenshot]
+
+    /// All screenshots for navigation (not paginated)
+    let allScreenshots: [Screenshot]
 
     /// Selected screenshots for bulk operations
     @Binding var selectedScreenshots: Set<Screenshot.ID>
@@ -52,7 +55,7 @@ struct ScreenshotListContentView: View {
         .navigationDestination(for: Screenshot.self) { screenshot in
             ScreenshotDetailView(
                 screenshot: screenshot,
-                allScreenshots: screenshots
+                allScreenshots: allScreenshots
             )
         }
     }

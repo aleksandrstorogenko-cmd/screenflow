@@ -44,8 +44,8 @@ final class EntityExtractionService {
         extractedData.phoneNumbers = basicEntities.phoneNumbers
         extractedData.addresses = basicEntities.addresses
 
-        // Try to detect event
-        if let event = eventDetector.detect(from: text, entities: basicEntities) {
+        // Try to detect event (pass scene classifications for context)
+        if let event = eventDetector.detect(from: text, entities: basicEntities, sceneClassifications: sceneClassifications) {
             extractedData.eventName = event.name
             extractedData.eventDate = event.startDate
             extractedData.eventEndDate = event.endDate

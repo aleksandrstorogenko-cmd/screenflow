@@ -29,6 +29,7 @@ struct ScreenshotImageView: View {
                 Image(uiImage: image)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
+                    .ignoresSafeArea()
             } else {
                 // Error state
                 VStack(spacing: 16) {

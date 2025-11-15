@@ -10,43 +10,47 @@ import SwiftData
 
 /// Sheet view showing screenshot metadata, actions, and extracted data
 struct ScreenshotInfoSheet: View {
-    let screenshot: Screenshot
-    @Environment(\.dismiss) private var dismiss
+    let allScreenshots: [Screenshot]
+    @Binding var currentIndex: Int
+
+    private var currentScreenshot: Screenshot? {
+        allScreenshots[safe: currentIndex]
+    }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 20) {
-                    // Thumbnail
-                    ScreenshotThumbnailView(screenshot: screenshot)
-                        .frame(height: 200)
-                        .cornerRadius(12)
-                        .padding(.horizontal)
-                        .padding(.top)
-
+        ScrollView {
+            VStack(spacing: 20) {
+                if let screenshot = currentScreenshot {
                     // Metadata
                     MetadataSection(screenshot: screenshot)
 
                     Divider()
                         .padding(.horizontal)
+                        .padding(.top, 10)
+
+                    // Links Section (if available) - Separate from Extracted Data
+                    if let extractedData = screenshot.extractedData, !extractedData.urls.isEmpty {
+                        LinksSection(urls: extractedData.urls)
+                            .padding(.top, 8)
+
+                        Divider()
+                            .padding(.horizontal)
+                            .padding(.top, 10)
+                    }
 
                     // Extracted Data (if available)
                     if let extractedData = screenshot.extractedData {
                         ExtractedDataSection(data: extractedData)
                     }
+                } else {
+                    Text("No screenshot selected")
+                        .foregroundColor(.secondary)
+                        .padding()
+                }
 
-                    Spacer(minLength: 20)
-                }
+                Spacer(minLength: 20)
             }
-            .navigationTitle("Details")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                }
-            }
+            .padding(.top)
         }
     }
 }
@@ -97,6 +101,7 @@ struct MetadataRow: View {
 
             Text(value)
                 .font(.subheadline)
+                .lineLimit(1)
         }
     }
 }

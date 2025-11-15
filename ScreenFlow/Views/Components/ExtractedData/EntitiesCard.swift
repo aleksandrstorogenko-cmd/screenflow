@@ -23,11 +23,6 @@ struct EntitiesCard: View {
             }
             .frame(maxWidth: .infinity)
 
-            // URLs (show all, no limit, with clickable links and copy)
-            if !data.urls.isEmpty {
-                URLList(urls: data.urls)
-            }
-
             // Emails
             if !data.emails.isEmpty {
                 EntityList(icon: "envelope", label: "Emails", items: data.emails, limit: 5)
@@ -110,38 +105,45 @@ struct URLList: View {
     @State private var copiedURL: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            // Header with Copy All button
-            HStack(spacing: 8) {
-                Image(systemName: "link")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .frame(width: 20)
-
+        VStack(alignment: .leading, spacing: 12) {
+            // Header with Copy All button (styled like the example)
+            HStack {
                 Text("Links")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundColor(.primary)
 
                 Spacer()
 
-                // Copy All button
+                // Copy All button (styled like "Clear" in the example)
                 Button {
                     copyAllURLs()
                 } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "doc.on.doc")
-                            .font(.caption)
-                        Text("Copy All")
-                            .font(.caption)
-                    }
-                    .foregroundColor(.blue)
+                    Text(copiedURL == "all" ? "Copied!" : "Copy All")
+                        .font(.subheadline)
+                        .fontWeight(.medium)
+                        .foregroundColor(.blue)
                 }
             }
 
-            // URL items
-            ForEach(Array(urls.enumerated()), id: \.offset) { index, urlString in
-                URLRow(urlString: urlString, copiedURL: $copiedURL)
+            // URL items in a card
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(Array(urls.enumerated()), id: \.offset) { index, urlString in
+                    URLRow(urlString: urlString, copiedURL: $copiedURL)
+
+                    // Divider between items (except for last item)
+                    if index < urls.count - 1 {
+                        Divider()
+                            .padding(.leading, 12)
+                    }
+                }
             }
+            .background(Color(.systemBackground))
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color(.systemGray4), lineWidth: 0.5)
+            )
         }
     }
 
@@ -176,7 +178,13 @@ struct URLRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 12) {
+            // Icon
+            Image(systemName: "link")
+                .font(.body)
+                .foregroundColor(.blue)
+                .frame(width: 24)
+
             // Clickable link
             Button {
                 openURL()
@@ -184,7 +192,6 @@ struct URLRow: View {
                 Text(displayText)
                     .font(.body)
                     .foregroundColor(.blue)
-                    .underline()
                     .lineLimit(1)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -194,12 +201,14 @@ struct URLRow: View {
             Button {
                 copyURL()
             } label: {
-                Image(systemName: isCopied ? "checkmark" : "doc.on.doc")
-                    .font(.caption)
+                Image(systemName: isCopied ? "checkmark.circle.fill" : "doc.on.doc")
+                    .font(.body)
                     .foregroundColor(isCopied ? .green : .secondary)
             }
         }
-        .padding(.leading, 28)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 12)
+        .contentShape(Rectangle())
     }
 
     private func openURL() {

@@ -80,9 +80,10 @@ struct ScreenshotDetailView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: 0) {
                         ForEach(Array(allScreenshots.enumerated()), id: \.element.id) { index, screenshot in
-                            ScreenshotImageView(screenshot: screenshot)
-                                .frame(width: geometry.size.width, height: geometry.size.height)
-                                .id(index)
+                                ScreenshotImageView(screenshot: screenshot)
+                                    .frame(width: geometry.size.width, height: geometry.size.height)
+                                    .background(Color.black)
+                                    .id(index)
                         }
                     }
                     .scrollTargetLayout()
@@ -95,9 +96,12 @@ struct ScreenshotDetailView: View {
 
                     // Re-analyze the initial screenshot with debouncing
                     scheduleReanalysis()
+
+                    // Show info sheet immediately and keep it visible
+                    showInfoSheet = true
                 }
                 .onChange(of: scrollPosition) { oldValue, newValue in
-                    if let newValue = newValue {
+                    if let newValue = newValue, newValue != currentIndex {
                         currentIndex = newValue
 
                         // Re-analyze when swiping to a different screenshot with debouncing
@@ -106,7 +110,6 @@ struct ScreenshotDetailView: View {
                 }
             }
         }
-        .background(Color.black)
         .ignoresSafeArea()
         .navigationBarTitleDisplayMode(.inline)
         .onDisappear {
@@ -114,126 +117,116 @@ struct ScreenshotDetailView: View {
             reanalysisTask?.cancel()
         }
         .toolbar {
-            ToolbarItem(placement: .principal) {
-                Text("")
-            }
-
             ToolbarItem(placement: .navigationBarTrailing) {
                 HStack(spacing: 16) {
-                    // Info button
-                    Button {
-                        showInfoSheet = true
-                    } label: {
-                        Image(systemName: "info.circle")
-                    }
-
-                    // Share button
-                    Button {
-                        shareScreenshot()
-                    } label: {
+                    Button(action: shareScreenshot) {
                         Image(systemName: "square.and.arrow.up")
                     }
                 }
             }
 
-            ToolbarItem(placement: .bottomBar) {
-                Menu {
-                    if let currentScreenshot = allScreenshots[safe: currentIndex] {
-                        // All actions
-                        if canSaveContact(currentScreenshot) {
-                            Button {
-                                performSaveContact(currentScreenshot)
-                            } label: {
-                                Label("Save Contact", systemImage: "person.crop.circle.badge.plus")
-                            }
-                        }
-
-                        Button {
-                            performCreateNote(currentScreenshot)
-                        } label: {
-                            Label("Create Note", systemImage: "note.text.badge.plus")
-                        }
-
-                        if canAddToCalendar(currentScreenshot) {
-                            Button {
-                                performAddToCalendar(currentScreenshot)
-                            } label: {
-                                Label("Add to Calendar", systemImage: "calendar.badge.plus")
-                            }
-                        }
-
-                        if canSaveBookmark(currentScreenshot) {
-                            Button {
-                                performSaveBookmark(currentScreenshot)
-                            } label: {
-                                Label("Save Bookmark", systemImage: "bookmark.fill")
-                            }
-                        }
-
-                        if canOpenURL(currentScreenshot) {
-                            Button {
-                                performOpenURL(currentScreenshot)
-                            } label: {
-                                Label("Open Link", systemImage: "link")
-                            }
-                        }
-
-                        if canOpenMap(currentScreenshot) {
-                            Button {
-                                performOpenMap(currentScreenshot)
-                            } label: {
-                                Label("Open in Maps", systemImage: "map.fill")
-                            }
-                        }
-
-                        if canMakeCall(currentScreenshot) {
-                            Button {
-                                performMakeCall(currentScreenshot)
-                            } label: {
-                                Label("Make Call", systemImage: "phone.fill")
-                            }
-                        }
-
-                        if canSendEmail(currentScreenshot) {
-                            Button {
-                                performSendEmail(currentScreenshot)
-                            } label: {
-                                Label("Send Email", systemImage: "envelope.fill")
-                            }
-                        }
-
-                        if canCopyText(currentScreenshot) {
-                            Button {
-                                performCopyText(currentScreenshot)
-                            } label: {
-                                Label("Copy Text", systemImage: "doc.on.doc")
-                            }
-                        }
-
-                        Button {
-                            performSaveToPhotos(currentScreenshot)
-                        } label: {
-                            Label("Save to Photos", systemImage: "photo.on.rectangle.angled")
-                        }
-
-                        Button {
-                            performShareImage(currentScreenshot)
-                        } label: {
-                            Label("Share", systemImage: "square.and.arrow.up")
-                        }
-                    }
-                } label: {
-                    Label("Actions", systemImage: "wand.and.stars")
-                        .font(.headline)
-                }
-                .menuStyle(.button)
-            }
+//            ToolbarItem(placement: .bottomBar) {
+//                Menu {
+//                    if let currentScreenshot = allScreenshots[safe: currentIndex] {
+//                        // All actions
+//                        if canSaveContact(currentScreenshot) {
+//                            Button {
+//                                performSaveContact(currentScreenshot)
+//                            } label: {
+//                                Label("Save Contact", systemImage: "person.crop.circle.badge.plus")
+//                            }
+//                        }
+//
+//                        Button {
+//                            performCreateNote(currentScreenshot)
+//                        } label: {
+//                            Label("Create Note", systemImage: "note.text.badge.plus")
+//                        }
+//
+//                        if canAddToCalendar(currentScreenshot) {
+//                            Button {
+//                                performAddToCalendar(currentScreenshot)
+//                            } label: {
+//                                Label("Add to Calendar", systemImage: "calendar.badge.plus")
+//                            }
+//                        }
+//
+//                        if canSaveBookmark(currentScreenshot) {
+//                            Button {
+//                                performSaveBookmark(currentScreenshot)
+//                            } label: {
+//                                Label("Save Bookmark", systemImage: "bookmark.fill")
+//                            }
+//                        }
+//
+//                        if canOpenURL(currentScreenshot) {
+//                            Button {
+//                                performOpenURL(currentScreenshot)
+//                            } label: {
+//                                Label("Open Link", systemImage: "link")
+//                            }
+//                        }
+//
+//                        if canOpenMap(currentScreenshot) {
+//                            Button {
+//                                performOpenMap(currentScreenshot)
+//                            } label: {
+//                                Label("Open in Maps", systemImage: "map.fill")
+//                            }
+//                        }
+//
+//                        if canMakeCall(currentScreenshot) {
+//                            Button {
+//                                performMakeCall(currentScreenshot)
+//                            } label: {
+//                                Label("Make Call", systemImage: "phone.fill")
+//                            }
+//                        }
+//
+//                        if canSendEmail(currentScreenshot) {
+//                            Button {
+//                                performSendEmail(currentScreenshot)
+//                            } label: {
+//                                Label("Send Email", systemImage: "envelope.fill")
+//                            }
+//                        }
+//
+//                        if canCopyText(currentScreenshot) {
+//                            Button {
+//                                performCopyText(currentScreenshot)
+//                            } label: {
+//                                Label("Copy Text", systemImage: "doc.on.doc")
+//                            }
+//                        }
+//
+//                        Button {
+//                            performSaveToPhotos(currentScreenshot)
+//                        } label: {
+//                            Label("Save to Photos", systemImage: "photo.on.rectangle.angled")
+//                        }
+//
+//                        Button {
+//                            performShareImage(currentScreenshot)
+//                        } label: {
+//                            Label("Share", systemImage: "square.and.arrow.up")
+//                        }
+//                    }
+//                } label: {
+//                    Label("Actions", systemImage: "wand.and.stars")
+//                        .font(.headline)
+//                }
+//                .menuStyle(.button)
+//            }
         }
-        .toolbarColorScheme(.dark, for: .navigationBar)
         .sheet(isPresented: $showInfoSheet) {
-            if let currentScreenshot = allScreenshots[safe: currentIndex] {
-                ScreenshotInfoSheet(screenshot: currentScreenshot)
-            }
+            ScreenshotInfoSheet(
+                allScreenshots: allScreenshots,
+                currentIndex: $currentIndex
+            )
+            .presentationDetents([.height(155), .large])
+            .presentationDragIndicator(.visible)
+            .interactiveDismissDisabled(true)
+            .presentationBackgroundInteraction(.enabled)
         }
         .sheet(isPresented: $showActionsSheet) {
             if let screenshot = selectedScreenshotForAction {
@@ -269,10 +262,10 @@ struct ScreenshotDetailView: View {
         // Cancel any existing analysis task
         reanalysisTask?.cancel()
 
-        // Schedule new analysis after a short delay
-        reanalysisTask = Task {
-            // Wait 500ms before starting analysis (debouncing)
-            try? await Task.sleep(nanoseconds: 500_000_000)
+        // Schedule new analysis with background priority to never interfere with UI
+        reanalysisTask = Task(priority: .background) {
+            // Wait 1.5 seconds to ensure scroll animation has completed
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
 
             // Check if task was cancelled during the delay
             guard !Task.isCancelled else { return }
