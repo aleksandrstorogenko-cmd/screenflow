@@ -121,6 +121,9 @@ struct ScreenshotDetailView: View {
         .onDisappear {
             // Cancel any ongoing re-analysis when leaving the view
             reanalysisScheduler.cancelReanalysis()
+
+            // Dismiss the info sheet when navigating away
+            showInfoSheet = false
         }
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
@@ -138,7 +141,6 @@ struct ScreenshotDetailView: View {
             )
             .presentationDetents([.height(155), .large])
             .presentationDragIndicator(.visible)
-            .interactiveDismissDisabled(true)
             .presentationBackgroundInteraction(.enabled)
         }
         .sheet(isPresented: $showActionsSheet) {
