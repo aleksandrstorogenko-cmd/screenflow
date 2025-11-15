@@ -15,7 +15,7 @@ struct BackSwipeObserver: UIViewControllerRepresentable {
     class Coordinator: NSObject {
         let onBackSwipeBegan: () -> Void
         private var hasTriggered = false
-        private weak var view: UIView?
+        fileprivate weak var view: UIView?
 
         init(onBackSwipeBegan: @escaping () -> Void) {
             self.onBackSwipeBegan = onBackSwipeBegan
