@@ -78,10 +78,8 @@ struct TextPreviewCard: View {
 
             var attributed = try AttributedString(markdown: text, options: options)
 
-            // Apply consistent base font - let markdown handle bold, italic, etc.
-            attributed.font = .system(size: 16)
-
-            // Ensure proper paragraph spacing
+            // Apply paragraph spacing for better readability
+            // This is applied using mergeAttributes which won't override existing formatting
             var container = AttributeContainer()
             container.paragraphStyle = {
                 let style = NSMutableParagraphStyle()
@@ -90,6 +88,15 @@ struct TextPreviewCard: View {
                 return style
             }()
             attributed.mergeAttributes(container)
+
+            // Apply base font size to parts without specific font attributes
+            // This preserves markdown-generated bold, italic, and heading styles
+            for run in attributed.runs {
+                if run.font == nil {
+                    let range = run.range
+                    attributed[range].font = .system(size: 16)
+                }
+            }
 
             return attributed
         } catch {
