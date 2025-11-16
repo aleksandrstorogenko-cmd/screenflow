@@ -150,16 +150,17 @@ final class BasicEntityExtractor {
         // - domain.tld URLs (any TLD from 2-24 chars)
         // - URLs with ports, paths, query params
         let patterns = [
-            // Full URLs with protocol - improved to capture all path characters
-            #"https?://[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9](?::[0-9]+)?(?:/[^\s<>\"{}|\\^`\[\]]*)?(?:\?[^\s<>\"{}|\\^`\[\]]*)?(?:#[^\s<>\"{}|\\^`\[\]]*)?|https?://[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]/[a-zA-Z0-9_\-/]+"#,
-            #"ftp://[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9](?::[0-9]+)?(?:/[^\s]*)?|ftp://[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]/[a-zA-Z0-9_\-/]+"#,
+            // Full URLs with protocol - captures complete URLs with paths, query strings, and fragments
+            // Matches protocol://host[:port][/path][?query][#fragment]
+            #"https?://[a-zA-Z0-9][-a-zA-Z0-9.]*[a-zA-Z0-9](?::[0-9]+)?(?:/[^\s<>"{}\|\\^`\[\]]*)?(?:\?[^\s<>"{}\|\\^`\[\]]*)?(?:#[^\s<>"{}\|\\^`\[\]]*)?|https?://[a-zA-Z0-9][-a-zA-Z0-9.]*[a-zA-Z0-9](?::[0-9]+)?/[-a-zA-Z0-9._~:/?#\[\]@!$&'()*+,;=%]+"#,
+            #"ftp://[a-zA-Z0-9][-a-zA-Z0-9.]*[a-zA-Z0-9](?::[0-9]+)?(?:/[-a-zA-Z0-9._~:/?#\[\]@!$&'()*+,;=%]*)?|ftp://[a-zA-Z0-9][-a-zA-Z0-9.]*[a-zA-Z0-9](?::[0-9]+)?/[-a-zA-Z0-9._~:/?#\[\]@!$&'()*+,;=%]+"#,
 
             // www. URLs without protocol
-            #"www\.[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.[^\s<>\"{}|\\^`\[\]]+[^\s<>\"{}|\\^`\[\].,;:!?)]"#,
+            #"www\.[a-zA-Z0-9][-a-zA-Z0-9.]*[a-zA-Z0-9](?:/[-a-zA-Z0-9._~:/?#\[\]@!$&'()*+,;=%]*)?"#,
 
             // Domain.tld patterns - generic TLD (2-24 letters, covers all real TLDs)
             // Examples: example.com, domain.io, site.co.uk, test.travel, app.museum
-            #"\b[a-zA-Z0-9][a-zA-Z0-9-]*\.[a-zA-Z]{2,24}(?:\.[a-zA-Z]{2,24})?[/\w\-._~:/?#\[\]@!$&'()*+,;=]*"#
+            #"\b[a-zA-Z0-9][-a-zA-Z0-9]*\.[a-zA-Z]{2,24}(?:\.[a-zA-Z]{2,24})?(?:/[-a-zA-Z0-9._~:/?#\[\]@!$&'()*+,;=%]*)?"#
         ]
 
         var urls: [URL] = []
