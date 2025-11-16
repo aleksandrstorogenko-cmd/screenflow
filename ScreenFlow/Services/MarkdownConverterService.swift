@@ -3,7 +3,7 @@
 //  ScreenFlow
 //
 //  Service for converting OCR blocks to Markdown.
-//  Uses Apple Intelligence (iOS 18+) or heuristic fallback.
+//  Uses Apple Intelligence (iOS 26+) or heuristic fallback.
 //
 
 import UIKit
@@ -16,7 +16,7 @@ import FoundationModels
 /// Converts OCR blocks to Markdown using intelligent reconstruction.
 ///
 /// The service automatically selects between two engines:
-/// - Apple Intelligence: On-device LLM reconstruction (iOS 18+ with availability check)
+/// - Apple Intelligence: On-device LLM reconstruction (iOS 26+ with availability check)
 /// - Heuristic: Pure geometric layout analysis (always available, offline)
 final class MarkdownConverterService: MarkdownConverterServiceProtocol {
 
@@ -31,7 +31,7 @@ final class MarkdownConverterService: MarkdownConverterServiceProtocol {
 
     private init() {
         // Determine which engine to use based on Apple Intelligence availability
-        if #available(iOS 18.0, *) {
+        if #available(iOS 26.0, *) {
             #if canImport(FoundationModels)
             if SystemLanguageModel.default.isAvailable {
                 self.engine = .appleIntelligence
@@ -62,7 +62,7 @@ final class MarkdownConverterService: MarkdownConverterServiceProtocol {
         // Convert blocks to Markdown using appropriate engine
         switch engine {
         case .appleIntelligence:
-            if #available(iOS 18.0, *) {
+            if #available(iOS 26.0, *) {
                 #if canImport(FoundationModels)
                 return try await convertWithAppleIntelligence(blocks: blocks)
                 #else
@@ -84,7 +84,7 @@ final class MarkdownConverterService: MarkdownConverterServiceProtocol {
     /// - Parameter blocks: OCR blocks with coordinates
     /// - Returns: Reconstructed Markdown string
     /// - Throws: Encoding or model errors
-    @available(iOS 18.0, *)
+    @available(iOS 26.0, *)
     private func convertWithAppleIntelligence(blocks: [OcrBlock]) async throws -> String {
         #if canImport(FoundationModels)
         // Encode blocks to JSON
