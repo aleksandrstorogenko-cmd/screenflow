@@ -33,16 +33,24 @@ final class MarkdownConverterService: MarkdownConverterServiceProtocol {
         // Determine which engine to use based on Apple Intelligence availability
         if #available(iOS 26.0, *) {
             #if canImport(FoundationModels)
-            if SystemLanguageModel.default.isAvailable {
+            // Check if Apple Intelligence is available on this device
+            let isAIAvailable = SystemLanguageModel.default.isAvailable
+            print("MarkdownConverterService: Apple Intelligence available: \(isAIAvailable)")
+
+            if isAIAvailable {
                 self.engine = .appleIntelligence
+                print("MarkdownConverterService: Using Apple Intelligence engine")
             } else {
                 self.engine = .heuristic
+                print("MarkdownConverterService: Apple Intelligence not available, using heuristic engine")
             }
             #else
             self.engine = .heuristic
+            print("MarkdownConverterService: FoundationModels not available, using heuristic engine")
             #endif
         } else {
             self.engine = .heuristic
+            print("MarkdownConverterService: iOS < 26, using heuristic engine")
         }
     }
 
@@ -126,11 +134,14 @@ final class MarkdownConverterService: MarkdownConverterServiceProtocol {
         \(jsonString)
         """
 
-        // Use SystemLanguageModel to generate Markdown
-        let model = SystemLanguageModel.default
-        let session = LanguageModelSession(model: model)
+        // Use LanguageModelSession to generate Markdown
+        print("MarkdownConverterService: Creating LanguageModelSession...")
+        let session = LanguageModelSession()
+
+        print("MarkdownConverterService: Sending prompt to model (text blocks: \(blocks.count))...")
         let response = try await session.respond(to: prompt)
 
+        print("MarkdownConverterService: Received response from model (length: \(response.content.count))")
         return response.content
         #else
         // Fallback to heuristics if framework not available at runtime
