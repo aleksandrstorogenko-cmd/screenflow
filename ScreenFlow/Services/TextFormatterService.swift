@@ -2,7 +2,8 @@
 //  TextFormatterService.swift
 //  ScreenFlow
 //
-//  Service for formatting extracted text into markdown using intelligent layout analysis
+//  DEPRECATED: Use ScreenshotProcessingCoordinator and MarkdownConverterService instead.
+//  This service is kept for backward compatibility only.
 //
 
 import Foundation
@@ -11,9 +12,12 @@ import NaturalLanguage
 
 /// Service for converting plain extracted text into markdown-formatted text
 ///
-/// This service now delegates to MarkdownConverterService which uses:
-/// - Apple Intelligence (iOS 18+) for smart reconstruction when available
-/// - Advanced heuristic analysis as fallback
+/// **DEPRECATED**: This service is no longer used in the new pipeline architecture.
+/// Use `ScreenshotProcessingCoordinator` for complete screenshot processing,
+/// or `MarkdownConverterService.convertToMarkdown(blocks:)` directly.
+///
+/// This service is kept for backward compatibility but will be removed in a future version.
+@available(*, deprecated, message: "Use ScreenshotProcessingCoordinator or MarkdownConverterService.convertToMarkdown(blocks:) instead")
 final class TextFormatterService {
     static let shared = TextFormatterService()
 
@@ -28,6 +32,7 @@ final class TextFormatterService {
     ///   - text: Plain text extracted from screenshot
     ///   - observations: Vision text observations with bounding boxes
     /// - Returns: Markdown-formatted text
+    @available(*, deprecated, message: "Use MarkdownConverterService.convertToMarkdown(blocks:) instead")
     func formatAsMarkdown(text: String, observations: [VNRecognizedTextObservation]) async -> String {
         guard !text.isEmpty else { return text }
 
@@ -36,10 +41,27 @@ final class TextFormatterService {
             return formatWithHeuristics(text: text)
         }
 
+        // Convert observations to OCR blocks
+        let blocks = observations.compactMap { observation -> OcrBlock? in
+            guard let text = observation.topCandidates(1).first?.string,
+                  !text.isEmpty else {
+                return nil
+            }
+
+            let rect = observation.boundingBox
+            return OcrBlock(
+                text: text,
+                x: Double(rect.origin.x),
+                y: Double(rect.origin.y),
+                width: Double(rect.size.width),
+                height: Double(rect.size.height)
+            )
+        }
+
         // Use the new MarkdownConverterService for intelligent conversion
         // This supports both Apple Intelligence and advanced heuristics
         do {
-            return try await markdownConverter.convert(observations: observations)
+            return try await markdownConverter.convertToMarkdown(blocks: blocks)
         } catch {
             // Fallback to basic heuristics on error
             return formatWithHeuristics(text: text)
