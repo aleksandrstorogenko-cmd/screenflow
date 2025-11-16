@@ -2,55 +2,30 @@
 //  MarkdownConverterService.swift
 //  ScreenFlow
 //
-//  Offline image-to-Markdown converter service.
-//  Uses Vision OCR + Apple Intelligence (if available) or heuristic fallback.
+//  Service for converting OCR blocks to Markdown.
+//  Uses Apple Intelligence (iOS 18+) or heuristic fallback.
 //
 
 import UIKit
-import Vision
 #if canImport(FoundationModels)
 import FoundationModels
 #endif
 
-// MARK: - Engine Kind
-
-/// Determines which Markdown reconstruction engine to use.
-enum MarkdownEngineKind {
-    case appleIntelligence  // Uses on-device SystemLanguageModel (iOS 18+)
-    case heuristic          // Uses geometric layout analysis only
-}
-
-// MARK: - OCR Block
-
-/// Represents a single text block from OCR with normalized coordinates.
-///
-/// Coordinates are normalized (0–1) using Vision's coordinate system:
-/// - Origin: bottom-left
-/// - x/y: [0, 1]
-/// - x increases rightward
-/// - y increases upward
-struct OcrBlock: Codable {
-    let text: String
-    let x: Double
-    let y: Double
-    let width: Double
-    let height: Double
-}
-
 // MARK: - Markdown Converter Service
 
-/// Converts images to Markdown using OCR and intelligent reconstruction.
+/// Converts OCR blocks to Markdown using intelligent reconstruction.
 ///
 /// The service automatically selects between two engines:
 /// - Apple Intelligence: On-device LLM reconstruction (iOS 18+ with availability check)
 /// - Heuristic: Pure geometric layout analysis (always available, offline)
-final class MarkdownConverterService {
+final class MarkdownConverterService: MarkdownConverterServiceProtocol {
 
     // MARK: - Properties
 
     static let shared = MarkdownConverterService()
 
-    private let engine: MarkdownEngineKind
+    /// Current engine being used
+    let engine: MarkdownEngineKind
 
     // MARK: - Initialization
 
@@ -71,30 +46,14 @@ final class MarkdownConverterService {
         }
     }
 
-    // MARK: - Public API
+    // MARK: - MarkdownConverterServiceProtocol
 
-    /// Converts an image to Markdown format.
+    /// Convert OCR blocks to Markdown format
     ///
-    /// - Parameter image: The image to convert
-    /// - Returns: Markdown string representing the document structure and content
-    /// - Throws: Vision or processing errors
-    func convert(image: UIImage) async throws -> String {
-        // Step 1: Run OCR to extract text blocks with coordinates
-        let blocks = try await recognizeTextBlocks(in: image)
-
-        // Step 2: Convert blocks to Markdown
-        return try await convert(blocks: blocks)
-    }
-
-    /// Converts pre-computed OCR blocks to Markdown format.
-    ///
-    /// Use this method when you already have OCR results from Vision framework
-    /// to avoid redundant OCR processing.
-    ///
-    /// - Parameter blocks: Pre-computed OCR blocks with coordinates
-    /// - Returns: Markdown string representing the document structure and content
+    /// - Parameter blocks: OCR blocks with coordinates
+    /// - Returns: Markdown-formatted text
     /// - Throws: Processing errors
-    func convert(blocks: [OcrBlock]) async throws -> String {
+    func convertToMarkdown(blocks: [OcrBlock]) async throws -> String {
         // If no text found, return empty string
         if blocks.isEmpty {
             return ""
@@ -116,88 +75,6 @@ final class MarkdownConverterService {
         case .heuristic:
             return try await convertWithHeuristics(blocks: blocks)
         }
-    }
-
-    /// Converts Vision text observations to Markdown format.
-    ///
-    /// Convenience method that converts Vision observations to OCR blocks first.
-    ///
-    /// - Parameter observations: Vision recognized text observations
-    /// - Returns: Markdown string representing the document structure and content
-    /// - Throws: Processing errors
-    func convert(observations: [VNRecognizedTextObservation]) async throws -> String {
-        // Convert observations to OCR blocks
-        let blocks = observations.compactMap { observation -> OcrBlock? in
-            guard let text = observation.topCandidates(1).first?.string,
-                  !text.isEmpty else {
-                return nil
-            }
-
-            let rect = observation.boundingBox
-            return OcrBlock(
-                text: text,
-                x: Double(rect.origin.x),
-                y: Double(rect.origin.y),
-                width: Double(rect.size.width),
-                height: Double(rect.size.height)
-            )
-        }
-
-        // Convert to Markdown
-        return try await convert(blocks: blocks)
-    }
-
-    // MARK: - OCR (Vision Framework)
-
-    /// Recognizes text blocks in an image using Vision framework.
-    ///
-    /// - Parameter image: The image to process
-    /// - Returns: Array of OCR blocks with normalized coordinates (bottom-left origin, 0-1 range)
-    /// - Throws: Vision processing errors
-    private func recognizeTextBlocks(in image: UIImage) async throws -> [OcrBlock] {
-        // Get CGImage
-        guard let cgImage = image.cgImage else {
-            return []
-        }
-
-        // Create and configure text recognition request
-        let request = VNRecognizeTextRequest()
-        request.recognitionLevel = .accurate
-        request.usesLanguageCorrection = true
-
-        // Perform OCR
-        let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-        try handler.perform([request])
-
-        // Extract observations
-        guard let observations = request.results else {
-            return []
-        }
-
-        // Convert observations to OCR blocks
-        var blocks: [OcrBlock] = []
-        for observation in observations {
-            // Get best text candidate
-            guard let text = observation.topCandidates(1).first?.string,
-                  !text.isEmpty else {
-                continue
-            }
-
-            // Get bounding box (normalized, bottom-left origin)
-            let rect = observation.boundingBox
-
-            // Create OCR block
-            let block = OcrBlock(
-                text: text,
-                x: Double(rect.origin.x),
-                y: Double(rect.origin.y),
-                width: Double(rect.size.width),
-                height: Double(rect.size.height)
-            )
-            blocks.append(block)
-        }
-
-        return blocks
     }
 
     // MARK: - Apple Intelligence Path

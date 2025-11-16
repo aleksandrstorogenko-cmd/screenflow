@@ -25,11 +25,11 @@ final class PhotoLibraryService: ObservableObject {
     /// Permission service dependency
     private let permissionService = PermissionService.shared
 
-    /// Screenshot analysis service dependency
+    /// Screenshot analysis service dependency (for classification and titles)
     private let screenshotAnalysisService = ScreenshotAnalysisService()
 
-    /// Entity extraction service dependency
-    private let entityExtractionService = EntityExtractionService.shared
+    /// Processing coordinator for the new pipeline
+    private let processingCoordinator = ScreenshotProcessingCoordinator.shared
 
     /// Action generation service dependency
     private let actionGenerationService = ActionGenerationService.shared
@@ -220,42 +220,46 @@ final class PhotoLibraryService: ObservableObject {
                             return
                         }
 
-                        // Analyze screenshot using Vision
+                        // Analyze screenshot using new processing pipeline
                         do {
-                            let result = try self.screenshotAnalysisService.makeTitle(
+                            // Step 1: Classification and title generation
+                            let classificationResult = try self.screenshotAnalysisService.makeTitle(
                                 for: cgImage,
                                 captureDate: screenshot.creationDate
                             )
-                            screenshot.title = result.title
-                            screenshot.kind = result.kind.rawValue
+                            screenshot.title = classificationResult.title
+                            screenshot.kind = classificationResult.kind.rawValue
 
-                            // Extract entities from the screenshot
+                            // Step 2: Process through new pipeline (OCR → Markdown → Entities)
                             Task {
-                                let extractedData = await self.entityExtractionService.extractEntities(
-                                    from: result.fullText,
-                                    textObservations: result.textObservations,
-                                    sceneClassifications: result.sceneClassifications,
-                                    cgImage: cgImage
-                                )
+                                do {
+                                    let processedData = try await self.processingCoordinator.process(image: image)
 
-                                // Link to screenshot
-                                extractedData.screenshot = screenshot
-                                screenshot.extractedData = extractedData
+                                    // Convert pipeline output to SwiftData model
+                                    let extractedData = ExtractedDataAdapter.toSwiftDataModel(processedData)
 
-                                // Generate smart actions
-                                let actions = self.actionGenerationService.generateActions(from: extractedData)
+                                    // Link to screenshot
+                                    extractedData.screenshot = screenshot
+                                    screenshot.extractedData = extractedData
 
-                                // Link actions to screenshot
-                                for action in actions {
-                                    action.screenshot = screenshot
-                                    screenshot.smartActions.append(action)
+                                    // Generate smart actions
+                                    let actions = self.actionGenerationService.generateActions(from: extractedData)
+
+                                    // Link actions to screenshot
+                                    for action in actions {
+                                        action.screenshot = screenshot
+                                        screenshot.smartActions.append(action)
+                                    }
+
+                                    continuation.resume()
+                                } catch {
+                                    print("Failed to process screenshot through pipeline: \(error)")
+                                    continuation.resume()
                                 }
-
-                                continuation.resume()
                             }
                         } catch {
-                            // If analysis fails, leave title and kind as nil
-                            print("Failed to analyze screenshot: \(error)")
+                            // If classification fails, leave title and kind as nil
+                            print("Failed to classify screenshot: \(error)")
                             continuation.resume()
                         }
                     }
@@ -293,26 +297,18 @@ final class PhotoLibraryService: ObservableObject {
                             return
                         }
 
-                        // Re-run Vision analysis to get fresh data
-                        do {
-                            let result = try self.screenshotAnalysisService.makeTitle(
-                                for: cgImage,
-                                captureDate: screenshot.creationDate
-                            )
-                            // Keep existing title and kind, just get the full text and classifications
-
-                            // Extract entities from the screenshot
-                            Task {
+                        // Re-process through new pipeline
+                        Task {
+                            do {
                                 // Clear old extracted data and actions
                                 screenshot.extractedData = nil
                                 screenshot.smartActions.removeAll()
 
-                                let extractedData = await self.entityExtractionService.extractEntities(
-                                    from: result.fullText,
-                                    textObservations: result.textObservations,
-                                    sceneClassifications: result.sceneClassifications,
-                                    cgImage: cgImage
-                                )
+                                // Process through new pipeline (OCR → Markdown → Entities)
+                                let processedData = try await self.processingCoordinator.process(image: image)
+
+                                // Convert pipeline output to SwiftData model
+                                let extractedData = ExtractedDataAdapter.toSwiftDataModel(processedData)
 
                                 // Link to screenshot
                                 extractedData.screenshot = screenshot
@@ -328,11 +324,11 @@ final class PhotoLibraryService: ObservableObject {
                                 }
 
                                 continuation.resume()
+                            } catch {
+                                // If processing fails, keep existing data
+                                print("Failed to re-process screenshot through pipeline: \(error)")
+                                continuation.resume()
                             }
-                        } catch {
-                            // If analysis fails, keep existing data
-                            print("Failed to re-analyze screenshot: \(error)")
-                            continuation.resume()
                         }
                     }
                 }
