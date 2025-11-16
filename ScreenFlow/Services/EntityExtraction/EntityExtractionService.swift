@@ -2,7 +2,8 @@
 //  EntityExtractionService.swift
 //  ScreenFlow
 //
-//  Main service for extracting entities from screenshots
+//  DEPRECATED: Use ScreenshotProcessingCoordinator and EntityExtractionPipelineService instead.
+//  This service is kept for backward compatibility only.
 //
 
 import Foundation
@@ -11,6 +12,13 @@ import NaturalLanguage
 import CoreGraphics
 
 /// Service for extracting structured data from screenshots
+///
+/// **DEPRECATED**: This service is no longer used in the new pipeline architecture.
+/// Use `ScreenshotProcessingCoordinator.process(image:)` for complete screenshot processing,
+/// or `EntityExtractionPipelineService` for entity extraction only.
+///
+/// This service is kept for backward compatibility but will be removed in a future version.
+@available(*, deprecated, message: "Use ScreenshotProcessingCoordinator or EntityExtractionPipelineService instead")
 final class EntityExtractionService {
     static let shared = EntityExtractionService()
 
@@ -37,7 +45,7 @@ final class EntityExtractionService {
         extractedData.fullText = text
 
         // Format text as markdown using Vision observations
-        extractedData.formattedText = textFormatter.formatAsMarkdown(
+        extractedData.formattedText = await textFormatter.formatAsMarkdown(
             text: text,
             observations: textObservations
         )
