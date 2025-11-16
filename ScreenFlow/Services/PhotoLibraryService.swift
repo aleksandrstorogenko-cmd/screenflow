@@ -233,6 +233,7 @@ final class PhotoLibraryService: ObservableObject {
                             Task {
                                 let extractedData = await self.entityExtractionService.extractEntities(
                                     from: result.fullText,
+                                    textObservations: result.textObservations,
                                     sceneClassifications: result.sceneClassifications,
                                     cgImage: cgImage
                                 )
@@ -308,6 +309,7 @@ final class PhotoLibraryService: ObservableObject {
 
                                 let extractedData = await self.entityExtractionService.extractEntities(
                                     from: result.fullText,
+                                    textObservations: result.textObservations,
                                     sceneClassifications: result.sceneClassifications,
                                     cgImage: cgImage
                                 )
