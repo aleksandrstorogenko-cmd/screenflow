@@ -13,12 +13,6 @@ struct ExtractedDataSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            // Section header
-            Text("Extracted Information")
-                .font(.headline)
-                .padding(.horizontal)
-                .padding(.top, 8)
-
             // Event info (if available)
             if hasEventData {
                 EventInfoCard(data: data)

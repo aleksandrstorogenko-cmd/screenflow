@@ -19,7 +19,7 @@ struct LinksSection: View {
                 Text("Links")
                     .font(.system(size: 20))
                     .fontWeight(.semibold)
-                    .foregroundColor(Color(.systemGray))
+                    .foregroundColor(Color.primary)
 
                 Spacer()
 

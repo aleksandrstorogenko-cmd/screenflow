@@ -16,10 +16,10 @@ struct TextPreviewCard: View {
         VStack(alignment: .leading, spacing: 0) {
             // Header with Copy button (matching LinksSection style)
             HStack(alignment: .firstTextBaseline) {
-                Text("Extracted Text")
+                Text("Text")
                     .font(.system(size: 20))
                     .fontWeight(.semibold)
-                    .foregroundColor(Color(.systemGray))
+                    .foregroundColor(Color.primary)
 
                 Spacer()
 

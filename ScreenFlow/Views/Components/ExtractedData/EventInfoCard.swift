@@ -18,7 +18,7 @@ struct EventInfoCard: View {
                 Text("Event")
                     .font(.system(size: 20))
                     .fontWeight(.semibold)
-                    .foregroundColor(Color(.systemGray))
+                    .foregroundColor(Color.primary)
 
                 Spacer()
             }

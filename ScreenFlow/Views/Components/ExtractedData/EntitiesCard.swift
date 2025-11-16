@@ -111,7 +111,7 @@ struct URLList: View {
                 Text("Links")
                     .font(.subheadline)
                     .fontWeight(.medium)
-                    .foregroundColor(.primary)
+                    .foregroundColor(Color.primary)
 
                 Spacer()
 
