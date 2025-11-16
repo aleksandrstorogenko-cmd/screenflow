@@ -10,7 +10,13 @@ import SwiftUI
 /// Card showing full text extracted from screenshot (styled like LinksSection)
 struct TextPreviewCard: View {
     let text: String
+    let isMarkdown: Bool
     @State private var copied = false
+
+    init(text: String, isMarkdown: Bool = false) {
+        self.text = text
+        self.isMarkdown = isMarkdown
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -36,11 +42,19 @@ struct TextPreviewCard: View {
 
             // Text content card
             VStack(alignment: .leading, spacing: 0) {
-                Text(text)
-                    .font(.system(size: 17))
-                    .foregroundColor(.primary)
-                    .textSelection(.enabled)
-                    .padding(20)
+                if isMarkdown {
+                    Text(attributedText)
+                        .font(.system(size: 17))
+                        .foregroundColor(.primary)
+                        .textSelection(.enabled)
+                        .padding(20)
+                } else {
+                    Text(text)
+                        .font(.system(size: 17))
+                        .foregroundColor(.primary)
+                        .textSelection(.enabled)
+                        .padding(20)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color(.systemBackground))
@@ -50,6 +64,20 @@ struct TextPreviewCard: View {
         }
         .padding(.top, 8)
     }
+
+    // MARK: - Computed Properties
+
+    /// Convert markdown text to AttributedString
+    private var attributedText: AttributedString {
+        do {
+            return try AttributedString(markdown: text, options: AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace))
+        } catch {
+            // Fallback to plain text if markdown parsing fails
+            return AttributedString(text)
+        }
+    }
+
+    // MARK: - Actions
 
     private func copyText() {
         UIPasteboard.general.string = text

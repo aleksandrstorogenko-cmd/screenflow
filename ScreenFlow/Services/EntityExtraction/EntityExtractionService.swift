@@ -18,6 +18,7 @@ final class EntityExtractionService {
     private let eventDetector = EventDetector()
     private let contactDetector = ContactDetector()
     private let objectDetectionService = ObjectDetectionService.shared
+    private let textFormatter = TextFormatterService.shared
 
     private init() {}
 
@@ -26,6 +27,7 @@ final class EntityExtractionService {
     /// Extract all entities from screenshot text and image
     func extractEntities(
         from text: String,
+        textObservations: [VNRecognizedTextObservation],
         sceneClassifications: [(identifier: String, confidence: Float)],
         cgImage: CGImage?
     ) async -> ExtractedData {
@@ -33,6 +35,12 @@ final class EntityExtractionService {
 
         // Store full text
         extractedData.fullText = text
+
+        // Format text as markdown using Vision observations
+        extractedData.formattedText = textFormatter.formatAsMarkdown(
+            text: text,
+            observations: textObservations
+        )
 
         // Detect language
         extractedData.textLanguage = detectLanguage(of: text)

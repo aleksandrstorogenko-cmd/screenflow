@@ -34,8 +34,8 @@ struct ExtractedDataSection: View {
             }
 
             // Full text preview (if available)
-            if let text = data.fullText, !text.isEmpty {
-                TextPreviewCard(text: text)
+            if let text = data.formattedText ?? data.fullText, !text.isEmpty {
+                TextPreviewCard(text: text, isMarkdown: data.formattedText != nil)
             }
 
             // No data message

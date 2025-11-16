@@ -21,6 +21,9 @@ final class ExtractedData {
     /// Complete recognized text from the screenshot
     var fullText: String?
 
+    /// Markdown-formatted version of the extracted text
+    var formattedText: String?
+
     /// Detected language of the text (ISO language code)
     var textLanguage: String?
 
