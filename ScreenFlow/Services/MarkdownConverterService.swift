@@ -82,12 +82,25 @@ final class MarkdownConverterService {
         // Step 1: Run OCR to extract text blocks with coordinates
         let blocks = try await recognizeTextBlocks(in: image)
 
+        // Step 2: Convert blocks to Markdown
+        return try await convert(blocks: blocks)
+    }
+
+    /// Converts pre-computed OCR blocks to Markdown format.
+    ///
+    /// Use this method when you already have OCR results from Vision framework
+    /// to avoid redundant OCR processing.
+    ///
+    /// - Parameter blocks: Pre-computed OCR blocks with coordinates
+    /// - Returns: Markdown string representing the document structure and content
+    /// - Throws: Processing errors
+    func convert(blocks: [OcrBlock]) async throws -> String {
         // If no text found, return empty string
         if blocks.isEmpty {
             return ""
         }
 
-        // Step 2: Convert blocks to Markdown using appropriate engine
+        // Convert blocks to Markdown using appropriate engine
         switch engine {
         case .appleIntelligence:
             if #available(iOS 18.0, *) {
@@ -103,6 +116,35 @@ final class MarkdownConverterService {
         case .heuristic:
             return try await convertWithHeuristics(blocks: blocks)
         }
+    }
+
+    /// Converts Vision text observations to Markdown format.
+    ///
+    /// Convenience method that converts Vision observations to OCR blocks first.
+    ///
+    /// - Parameter observations: Vision recognized text observations
+    /// - Returns: Markdown string representing the document structure and content
+    /// - Throws: Processing errors
+    func convert(observations: [VNRecognizedTextObservation]) async throws -> String {
+        // Convert observations to OCR blocks
+        let blocks = observations.compactMap { observation -> OcrBlock? in
+            guard let text = observation.topCandidates(1).first?.string,
+                  !text.isEmpty else {
+                return nil
+            }
+
+            let rect = observation.boundingBox
+            return OcrBlock(
+                text: text,
+                x: Double(rect.origin.x),
+                y: Double(rect.origin.y),
+                width: Double(rect.size.width),
+                height: Double(rect.size.height)
+            )
+        }
+
+        // Convert to Markdown
+        return try await convert(blocks: blocks)
     }
 
     // MARK: - OCR (Vision Framework)

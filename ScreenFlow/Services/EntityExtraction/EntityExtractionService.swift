@@ -37,7 +37,7 @@ final class EntityExtractionService {
         extractedData.fullText = text
 
         // Format text as markdown using Vision observations
-        extractedData.formattedText = textFormatter.formatAsMarkdown(
+        extractedData.formattedText = await textFormatter.formatAsMarkdown(
             text: text,
             observations: textObservations
         )

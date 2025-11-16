@@ -2,7 +2,7 @@
 //  TextFormatterService.swift
 //  ScreenFlow
 //
-//  Service for formatting extracted text into markdown using layout analysis
+//  Service for formatting extracted text into markdown using intelligent layout analysis
 //
 
 import Foundation
@@ -10,8 +10,14 @@ import Vision
 import NaturalLanguage
 
 /// Service for converting plain extracted text into markdown-formatted text
+///
+/// This service now delegates to MarkdownConverterService which uses:
+/// - Apple Intelligence (iOS 18+) for smart reconstruction when available
+/// - Advanced heuristic analysis as fallback
 final class TextFormatterService {
     static let shared = TextFormatterService()
+
+    private let markdownConverter = MarkdownConverterService.shared
 
     private init() {}
 
@@ -22,19 +28,22 @@ final class TextFormatterService {
     ///   - text: Plain text extracted from screenshot
     ///   - observations: Vision text observations with bounding boxes
     /// - Returns: Markdown-formatted text
-    func formatAsMarkdown(text: String, observations: [VNRecognizedTextObservation]) -> String {
+    func formatAsMarkdown(text: String, observations: [VNRecognizedTextObservation]) async -> String {
         guard !text.isEmpty else { return text }
 
-        // If we don't have observations, fall back to heuristic-based formatting
+        // If we don't have observations, fall back to simple heuristic-based formatting
         guard !observations.isEmpty else {
             return formatWithHeuristics(text: text)
         }
 
-        // Analyze layout from observations
-        let lines = extractLinesWithLayout(from: observations)
-
-        // Convert to markdown
-        return convertToMarkdown(lines: lines, originalText: text)
+        // Use the new MarkdownConverterService for intelligent conversion
+        // This supports both Apple Intelligence and advanced heuristics
+        do {
+            return try await markdownConverter.convert(observations: observations)
+        } catch {
+            // Fallback to basic heuristics on error
+            return formatWithHeuristics(text: text)
+        }
     }
 
     // MARK: - Layout Analysis
