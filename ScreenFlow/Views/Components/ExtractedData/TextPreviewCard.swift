@@ -69,7 +69,7 @@ struct TextPreviewCard: View {
     /// Convert markdown text to AttributedString with proper formatting
     private var attributedText: AttributedString {
         do {
-            // Parse markdown with full syntax support
+            // Parse markdown with full syntax support and preserve whitespace
             var options = AttributedString.MarkdownParsingOptions(
                 interpretedSyntax: .full,
                 failurePolicy: .returnPartiallyParsedIfPossible
@@ -78,45 +78,24 @@ struct TextPreviewCard: View {
 
             var attributed = try AttributedString(markdown: text, options: options)
 
-            // Apply base font to ensure consistent sizing
-            attributed.font = .system(size: 17)
+            // Apply consistent base font - let markdown handle bold, italic, etc.
+            attributed.font = .system(size: 16)
 
-            // Apply custom styling for headings
-            for run in attributed.runs {
-                if let presentationIntent = run.presentationIntent {
-                    if presentationIntent.components.contains(where: { component in
-                        if case .header(level: 1) = component.kind {
-                            return true
-                        }
-                        return false
-                    }) {
-                        // H1 - larger, bold
-                        attributed[run.range].font = .system(size: 24, weight: .bold)
-                    } else if presentationIntent.components.contains(where: { component in
-                        if case .header(level: 2) = component.kind {
-                            return true
-                        }
-                        return false
-                    }) {
-                        // H2 - medium, semibold
-                        attributed[run.range].font = .system(size: 20, weight: .semibold)
-                    } else if presentationIntent.components.contains(where: { component in
-                        if case .header = component.kind {
-                            return true
-                        }
-                        return false
-                    }) {
-                        // Other headings - slightly larger, medium weight
-                        attributed[run.range].font = .system(size: 18, weight: .medium)
-                    }
-                }
-            }
+            // Ensure proper paragraph spacing
+            var container = AttributeContainer()
+            container.paragraphStyle = {
+                let style = NSMutableParagraphStyle()
+                style.paragraphSpacing = 8  // Space between paragraphs
+                style.lineSpacing = 2       // Space between lines within a paragraph
+                return style
+            }()
+            attributed.mergeAttributes(container)
 
             return attributed
         } catch {
             // Fallback to plain text if markdown parsing fails
             var fallback = AttributedString(text)
-            fallback.font = .system(size: 17)
+            fallback.font = .system(size: 16)
             return fallback
         }
     }

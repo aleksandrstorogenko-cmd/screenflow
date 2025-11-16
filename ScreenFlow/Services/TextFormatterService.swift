@@ -80,8 +80,9 @@ final class TextFormatterService {
 
         // Calculate average font size for comparison
         let avgFontSize = lines.map { $0.fontSize }.reduce(0, +) / CGFloat(lines.count)
-        let largeThreshold = avgFontSize * 1.3
-        let mediumThreshold = avgFontSize * 1.15
+        // Much higher thresholds to avoid false positives
+        let largeThreshold = avgFontSize * 1.8
+        let mediumThreshold = avgFontSize * 1.5
 
         // Calculate average indentation
         let avgIndent = lines.map { $0.xPosition }.reduce(0, +) / CGFloat(lines.count)
@@ -98,13 +99,14 @@ final class TextFormatterService {
 
             var formattedLine = trimmedText
 
-            // Detect headings based on font size
-            if line.fontSize > largeThreshold {
-                // Large text = main heading
-                formattedLine = "# \(trimmedText)"
-            } else if line.fontSize > mediumThreshold {
-                // Medium-large text = subheading
-                formattedLine = "## \(trimmedText)"
+            // Very conservative heading detection - only for clearly distinct titles
+            // Must be significantly larger AND relatively short
+            if line.fontSize > largeThreshold && trimmedText.count < 60 {
+                // Large text = main heading (only if it's a short, distinct title)
+                formattedLine = "**\(trimmedText)**"  // Use bold instead of H1
+            } else if line.fontSize > mediumThreshold && trimmedText.count < 50 {
+                // Medium-large text = subheading (only if short)
+                formattedLine = "**\(trimmedText)**"  // Use bold instead of H2
             }
             // Detect list items
             else if trimmedText.hasPrefix("-") || trimmedText.hasPrefix("•") || trimmedText.hasPrefix("*") {
@@ -122,7 +124,7 @@ final class TextFormatterService {
             else if line.xPosition > avgIndent * 1.2 {
                 formattedLine = "> \(trimmedText)"
             }
-            // Detect potential headings by pattern (ends with colon, short length)
+            // Detect potential labels by pattern (ends with colon, short length)
             else if trimmedText.hasSuffix(":") && trimmedText.count < 50 {
                 formattedLine = "**\(trimmedText)**"
             }
@@ -135,13 +137,13 @@ final class TextFormatterService {
                 formattedLine = "`\(trimmedText)`"
             }
 
-            // Add spacing between sections
+            // Add spacing between sections - more generous to preserve paragraph breaks
             if let prev = previousLine {
                 let verticalGap = abs(prev.yPosition - line.yPosition)
                 let avgHeight = (prev.fontSize + line.fontSize) / 2
 
-                // Large vertical gap = new section
-                if verticalGap > avgHeight * 1.5 {
+                // Add blank line for larger gaps (paragraph breaks)
+                if verticalGap > avgHeight * 1.2 {
                     result.append("")
                 }
             }
@@ -150,6 +152,7 @@ final class TextFormatterService {
             previousLine = line
         }
 
+        // Join with explicit newlines to ensure proper line breaks
         return result.joined(separator: "\n")
     }
 
@@ -159,27 +162,25 @@ final class TextFormatterService {
     private func formatWithHeuristics(text: String) -> String {
         let lines = text.components(separatedBy: .newlines)
         var result: [String] = []
-        var inCodeBlock = false
+        var previousLineWasEmpty = false
 
-        for (index, line) in lines.enumerated() {
+        for line in lines {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
 
-            // Skip empty lines but preserve spacing
+            // Preserve empty lines for paragraph spacing
             if trimmed.isEmpty {
-                if !result.isEmpty && !result.last!.isEmpty {
+                if !previousLineWasEmpty && !result.isEmpty {
                     result.append("")
+                    previousLineWasEmpty = true
                 }
                 continue
             }
 
+            previousLineWasEmpty = false
             var formattedLine = trimmed
 
-            // First line with substantial text might be a title
-            if index == 0 && trimmed.count > 5 && trimmed.count < 60 {
-                formattedLine = "# \(trimmed)"
-            }
-            // Lines ending with colon are likely labels/headings
-            else if trimmed.hasSuffix(":") && trimmed.count < 50 {
+            // Lines ending with colon are likely labels
+            if trimmed.hasSuffix(":") && trimmed.count < 50 {
                 formattedLine = "**\(trimmed)**"
             }
             // List items
