@@ -70,7 +70,7 @@ struct TextPreviewCard: View {
     /// Convert markdown text to AttributedString
     private var attributedText: AttributedString {
         do {
-            return try AttributedString(markdown: text, options: AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace))
+            return try AttributedString(markdown: text, options: AttributedString.MarkdownParsingOptions(interpretedSyntax: .full))
         } catch {
             // Fallback to plain text if markdown parsing fails
             return AttributedString(text)
