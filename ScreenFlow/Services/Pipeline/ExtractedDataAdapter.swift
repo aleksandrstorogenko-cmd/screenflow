@@ -10,6 +10,11 @@ import Foundation
 /// Adapter for converting ProcessedScreenshotData to SwiftData ExtractedData
 final class ExtractedDataAdapter {
 
+    // MARK: - Dependencies
+
+    private static let eventDetector = EventDetector()
+    private static let contactDetector = ContactDetector()
+
     // MARK: - Public Methods
 
     /// Convert ProcessedScreenshotData to SwiftData ExtractedData model
@@ -24,64 +29,89 @@ final class ExtractedDataAdapter {
         extractedData.formattedText = processedData.formattedText
         extractedData.textLanguage = processedData.detectedLanguage
 
+        // Collect basic entities first
+        var urls: [URL] = []
+        var emails: [String] = []
+        var phones: [String] = []
+        var addresses: [String] = []
+        var dates: [Date] = []
+
         // Extract and categorize entities
         for entity in processedData.entities {
             switch entity.kind {
             case .url:
-                if !extractedData.urls.contains(entity.value) {
+                if let url = URL(string: entity.value), !extractedData.urls.contains(entity.value) {
                     extractedData.urls.append(entity.value)
+                    urls.append(url)
                 }
 
             case .email:
                 if !extractedData.emails.contains(entity.value) {
                     extractedData.emails.append(entity.value)
+                    emails.append(entity.value)
                 }
 
             case .phone:
                 if !extractedData.phoneNumbers.contains(entity.value) {
                     extractedData.phoneNumbers.append(entity.value)
+                    phones.append(entity.value)
                 }
 
             case .address:
                 if !extractedData.addresses.contains(entity.value) {
                     extractedData.addresses.append(entity.value)
+                    addresses.append(entity.value)
                 }
 
             case .date:
-                // Store date entity metadata
+                // Parse ISO8601 date
                 if let rawText = entity.metadata?["rawText"] {
-                    // Could parse and store in eventDate if needed
-                    _ = rawText
+                    let formatter = ISO8601DateFormatter()
+                    if let date = formatter.date(from: entity.value) {
+                        dates.append(date)
+                    }
                 }
 
-            case .event:
-                // First event entity becomes the event name
-                if extractedData.eventName == nil {
-                    extractedData.eventName = entity.value
-                }
-
-            case .person:
-                // First person entity becomes contact name
-                if extractedData.contactName == nil {
-                    extractedData.contactName = entity.value
-                }
-
-            case .organization:
-                // First organization entity becomes contact company
-                if extractedData.contactCompany == nil {
-                    extractedData.contactCompany = entity.value
-                }
-
-            case .location:
-                // First location becomes event location
-                if extractedData.eventLocation == nil {
-                    extractedData.eventLocation = entity.value
-                }
-
-            case .custom:
-                // Handle custom entity types
+            case .event, .person, .organization, .location, .custom:
+                // These will be handled by specialized detectors below
                 break
             }
+        }
+
+        // Use specialized detectors for event and contact data
+        // This ensures proper validation and reduces false positives
+        let basicEntities = BasicEntities(
+            urls: urls,
+            emails: emails,
+            phoneNumbers: phones,
+            addresses: addresses,
+            dates: dates
+        )
+
+        // Detect events with proper validation
+        if let event = eventDetector.detect(
+            from: processedData.rawText,
+            entities: basicEntities,
+            sceneClassifications: processedData.ocrBlocks.isEmpty ? [] : []
+        ) {
+            extractedData.eventName = event.name
+            extractedData.eventDate = event.startDate
+            extractedData.eventEndDate = event.endDate
+            extractedData.eventLocation = event.location
+            extractedData.eventDescription = event.description
+        }
+
+        // Detect contacts with proper validation
+        if let contact = contactDetector.detect(
+            from: processedData.rawText,
+            entities: basicEntities
+        ) {
+            extractedData.contactName = contact.name
+            extractedData.contactCompany = contact.company
+            extractedData.contactJobTitle = contact.jobTitle
+            extractedData.contactPhone = contact.phone
+            extractedData.contactEmail = contact.email
+            extractedData.contactAddress = contact.address
         }
 
         // Set confidence based on entity richness

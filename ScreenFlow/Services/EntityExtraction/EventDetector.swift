@@ -42,15 +42,34 @@ final class EventDetector {
         let lowerText = text.lowercased()
         let hasEventKeyword = eventKeywords.contains { lowerText.contains($0) }
 
+        // MUCH more conservative event detection - require multiple pieces of evidence
         // For social media/chat, require strong evidence of an event
         if isSocialMedia {
-            // Only proceed if there are explicit event keywords AND multiple dates
-            guard hasEventKeyword && entities.dates.count >= 2 else {
+            // Only proceed if there are explicit event keywords AND multiple dates AND location
+            guard hasEventKeyword && entities.dates.count >= 2 && !entities.addresses.isEmpty else {
                 return nil
             }
         } else {
-            // For other contexts, use the original logic
-            guard hasEventKeyword || entities.dates.count >= 2 else {
+            // For regular text, require BOTH event keywords AND either:
+            // 1. Multiple dates OR
+            // 2. At least one location/address OR
+            // 3. Time patterns (suggesting scheduled event)
+            let hasTimePattern = lowerText.range(of: #"\b\d{1,2}:\d{2}\s*(am|pm|AM|PM)?\b"#, options: .regularExpression) != nil
+            let hasLocation = !entities.addresses.isEmpty || hasLocationIndicators(in: lowerText)
+
+            // Must have event keyword AND at least one of: multiple dates, location, or time pattern
+            guard hasEventKeyword && (entities.dates.count >= 2 || hasLocation || hasTimePattern) else {
+                return nil
+            }
+
+            // Additional validation: Don't create events for very short text (likely just a date mention)
+            guard text.count > 50 else {
+                return nil
+            }
+
+            // Additional validation: Don't create events if text looks like a document/article
+            // (very long text with many lines is likely not an event invitation)
+            if lines.count > 30 && !hasTimePattern {
                 return nil
             }
         }
@@ -72,8 +91,18 @@ final class EventDetector {
         // Extract description (combine relevant lines)
         event.description = extractDescription(from: lines)
 
-        // Only return if we have a valid event
-        return event.isValid ? event : nil
+        // Only return if we have a valid event with meaningful data
+        // Require at least event name or location (not just dates)
+        guard event.isValid && (event.name != nil || event.location != nil) else {
+            return nil
+        }
+
+        return event
+    }
+
+    /// Check if text contains location indicator words
+    private func hasLocationIndicators(in text: String) -> Bool {
+        return locationIndicators.contains { text.contains($0) }
     }
 
     // MARK: - Private Helpers
