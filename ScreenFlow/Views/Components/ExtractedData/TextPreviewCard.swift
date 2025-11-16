@@ -44,10 +44,9 @@ struct TextPreviewCard: View {
             VStack(alignment: .leading, spacing: 0) {
                 if isMarkdown {
                     Text(attributedText)
-                        .font(.system(size: 17))
-                        .foregroundColor(.primary)
                         .textSelection(.enabled)
                         .padding(20)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
                     Text(text)
                         .font(.system(size: 17))
@@ -67,13 +66,58 @@ struct TextPreviewCard: View {
 
     // MARK: - Computed Properties
 
-    /// Convert markdown text to AttributedString
+    /// Convert markdown text to AttributedString with proper formatting
     private var attributedText: AttributedString {
         do {
-            return try AttributedString(markdown: text, options: AttributedString.MarkdownParsingOptions(interpretedSyntax: .full))
+            // Parse markdown with full syntax support
+            var options = AttributedString.MarkdownParsingOptions(
+                interpretedSyntax: .full,
+                failurePolicy: .returnPartiallyParsedIfPossible
+            )
+            options.allowsExtendedAttributes = true
+
+            var attributed = try AttributedString(markdown: text, options: options)
+
+            // Apply base font to ensure consistent sizing
+            attributed.font = .system(size: 17)
+
+            // Apply custom styling for headings
+            for run in attributed.runs {
+                if let presentationIntent = run.presentationIntent {
+                    if presentationIntent.components.contains(where: { component in
+                        if case .header(level: 1) = component.kind {
+                            return true
+                        }
+                        return false
+                    }) {
+                        // H1 - larger, bold
+                        attributed[run.range].font = .system(size: 24, weight: .bold)
+                    } else if presentationIntent.components.contains(where: { component in
+                        if case .header(level: 2) = component.kind {
+                            return true
+                        }
+                        return false
+                    }) {
+                        // H2 - medium, semibold
+                        attributed[run.range].font = .system(size: 20, weight: .semibold)
+                    } else if presentationIntent.components.contains(where: { component in
+                        if case .header = component.kind {
+                            return true
+                        }
+                        return false
+                    }) {
+                        // Other headings - slightly larger, medium weight
+                        attributed[run.range].font = .system(size: 18, weight: .medium)
+                    }
+                }
+            }
+
+            return attributed
         } catch {
             // Fallback to plain text if markdown parsing fails
-            return AttributedString(text)
+            var fallback = AttributedString(text)
+            fallback.font = .system(size: 17)
+            return fallback
         }
     }
 
