@@ -33,16 +33,24 @@ final class MarkdownConverterService: MarkdownConverterServiceProtocol {
         // Determine which engine to use based on Apple Intelligence availability
         if #available(iOS 26.0, *) {
             #if canImport(FoundationModels)
-            if SystemLanguageModel.default.isAvailable {
+            // Check if Apple Intelligence is available on this device
+            let isAIAvailable = SystemLanguageModel.default.isAvailable
+            print("MarkdownConverterService: Apple Intelligence available: \(isAIAvailable)")
+
+            if isAIAvailable {
                 self.engine = .appleIntelligence
+                print("MarkdownConverterService: Using Apple Intelligence engine")
             } else {
                 self.engine = .heuristic
+                print("MarkdownConverterService: Apple Intelligence not available, using heuristic engine")
             }
             #else
             self.engine = .heuristic
+            print("MarkdownConverterService: FoundationModels not available, using heuristic engine")
             #endif
         } else {
             self.engine = .heuristic
+            print("MarkdownConverterService: iOS < 26, using heuristic engine")
         }
     }
 
@@ -64,7 +72,20 @@ final class MarkdownConverterService: MarkdownConverterServiceProtocol {
         case .appleIntelligence:
             if #available(iOS 26.0, *) {
                 #if canImport(FoundationModels)
-                return try await convertWithAppleIntelligence(blocks: blocks)
+                // Try Apple Intelligence path, but fall back to heuristics on any error
+                do {
+                    return try await convertWithAppleIntelligence(blocks: blocks)
+                } catch {
+                    print("Apple Intelligence conversion failed, falling back to heuristics: \(error)")
+                    // Ensure heuristic fallback never fails
+                    do {
+                        return try await convertWithHeuristics(blocks: blocks)
+                    } catch {
+                        print("Heuristic conversion also failed, returning plain text: \(error)")
+                        // Last resort: return plain text joined with newlines
+                        return blocks.map { $0.text }.joined(separator: "\n")
+                    }
+                }
                 #else
                 return try await convertWithHeuristics(blocks: blocks)
                 #endif
@@ -113,11 +134,14 @@ final class MarkdownConverterService: MarkdownConverterServiceProtocol {
         \(jsonString)
         """
 
-        // Use SystemLanguageModel to generate Markdown
-        let model = SystemLanguageModel.default
-        let session = LanguageModelSession(model: model)
+        // Use LanguageModelSession to generate Markdown
+        print("MarkdownConverterService: Creating LanguageModelSession...")
+        let session = LanguageModelSession()
+
+        print("MarkdownConverterService: Sending prompt to model (text blocks: \(blocks.count))...")
         let response = try await session.respond(to: prompt)
 
+        print("MarkdownConverterService: Received response from model (length: \(response.content.count))")
         return response.content
         #else
         // Fallback to heuristics if framework not available at runtime
@@ -135,6 +159,9 @@ final class MarkdownConverterService: MarkdownConverterServiceProtocol {
     /// - Parameter blocks: OCR blocks with coordinates
     /// - Returns: Reconstructed Markdown string
     private func convertWithHeuristics(blocks: [OcrBlock]) async throws -> String {
+        // Safety check - return empty string if no blocks
+        guard !blocks.isEmpty else { return "" }
+
         // A) Sort blocks by visual order (top to bottom, then left to right)
         // Vision uses bottom-left origin, so larger y = higher on page
         let sorted = blocks.sorted { a, b in
@@ -161,14 +188,17 @@ final class MarkdownConverterService: MarkdownConverterServiceProtocol {
         }
 
         var lines: [Line] = []
-        var currentText = ""
+
+        // Safety check - ensure we have at least one block
+        guard !sorted.isEmpty else { return "" }
+
+        var currentText = sorted[0].text
         var currentY = sorted[0].y
         var currentHeight = sorted[0].height
         var lastBlock = sorted[0]
 
         for (index, block) in sorted.enumerated() {
             if index == 0 {
-                currentText = block.text
                 continue
             }
 
