@@ -7,41 +7,50 @@
 
 import SwiftUI
 
-/// Card showing event details
+/// Card showing event details (styled like LinksSection)
 struct EventInfoCard: View {
     let data: ExtractedData
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Header
-            HStack {
-                Image(systemName: "calendar")
-                    .foregroundColor(.orange)
+        VStack(alignment: .leading, spacing: 0) {
+            // Header (matching LinksSection style)
+            HStack(alignment: .firstTextBaseline) {
                 Text("Event")
-                    .font(.headline)
-            }
+                    .font(.system(size: 20))
+                    .fontWeight(.semibold)
+                    .foregroundColor(Color(.systemGray))
 
-            // Event details
-            if let name = data.eventName {
-                DetailRow(icon: "ticket", label: "Event", value: name)
+                Spacer()
             }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 16)
 
-            if let date = data.eventDate {
-                DetailRow(icon: "clock", label: "Date", value: formatDate(date))
-            }
+            // Event details card
+            VStack(alignment: .leading, spacing: 12) {
+                if let name = data.eventName {
+                    DetailRow(icon: "ticket", label: "Event", value: name)
+                }
 
-            if let location = data.eventLocation {
-                DetailRow(icon: "location", label: "Location", value: location)
-            }
+                if let date = data.eventDate {
+                    DetailRow(icon: "clock", label: "Date", value: formatDate(date))
+                }
 
-            if let description = data.eventDescription {
-                DetailRow(icon: "text.alignleft", label: "Description", value: description)
+                if let location = data.eventLocation {
+                    DetailRow(icon: "location", label: "Location", value: location)
+                }
+
+                if let description = data.eventDescription {
+                    DetailRow(icon: "text.alignleft", label: "Description", value: description)
+                }
             }
+            .padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(.systemBackground))
+            .cornerRadius(24)
+            .padding(.horizontal, 16)
+            .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 2)
         }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
-        .padding(.horizontal)
+        .padding(.top, 8)
     }
 
     // MARK: - Helpers
