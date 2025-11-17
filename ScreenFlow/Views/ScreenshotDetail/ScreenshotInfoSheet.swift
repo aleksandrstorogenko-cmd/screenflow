@@ -27,9 +27,21 @@ struct ScreenshotInfoSheet: View {
             ZStack {
                 ScrollView {
                     VStack(spacing: 20) {
+                        // Show title at top left when sheet is not large
+                        if currentDetent != .large {
+                            HStack {
+                                Text("Info")
+                                    .font(.headline)
+                                    .padding(.horizontal)
+                                Spacer()
+                            }
+                            .padding(.top, 8)
+                            .transition(.move(edge: .leading).combined(with: .opacity))
+                        }
+
                         if let screenshot = currentScreenshot {
                             // Metadata
-                            MetadataSection(screenshot: screenshot)
+                            MetadataSection(screenshot: screenshot, showTitle: currentDetent == .large)
 
                             Divider()
                                 .padding(.horizontal)
@@ -69,14 +81,16 @@ struct ScreenshotInfoSheet: View {
                         Spacer(minLength: 20)
                     }
                     .padding(.top)
+                    .animation(.easeInOut(duration: 0.3), value: currentDetent)
                 }
             }
-            .navigationTitle("Info")
+            .navigationTitle(currentDetent == .large ? "Info" : "")
             .navigationBarTitleDisplayMode(.inline)
+            .animation(.easeInOut(duration: 0.3), value: currentDetent)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    // Only show refresh button when in large detent
-                    if currentDetent == .large {
+                // Only show toolbar when in large detent
+                if currentDetent == .large {
+                    ToolbarItem(placement: .navigationBarTrailing) {
                         Button {
                             refreshScreenshotData()
                         } label: {
@@ -88,6 +102,7 @@ struct ScreenshotInfoSheet: View {
                             }
                         }
                         .disabled(isRefreshing || currentScreenshot == nil)
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
                     }
                 }
             }
@@ -140,12 +155,16 @@ struct ScreenshotInfoSheet: View {
 /// Metadata section showing basic screenshot info
 struct MetadataSection: View {
     let screenshot: Screenshot
+    var showTitle: Bool = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Info")
-                .font(.headline)
-                .padding(.horizontal)
+            if showTitle {
+                Text("Info")
+                    .font(.headline)
+                    .padding(.horizontal)
+                    .transition(.opacity)
+            }
 
             VStack(spacing: 8) {
                 MetadataRow(label: "File Name", value: screenshot.fileName)
