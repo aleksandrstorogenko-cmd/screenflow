@@ -16,7 +16,6 @@ struct ScreenshotInfoSheet: View {
 
     @Environment(\.modelContext) private var modelContext
     @State private var isRefreshing = false
-    @State private var hasTriggeredInitialParsing = false
 
     private var currentScreenshot: Screenshot? {
         allScreenshots[safe: currentIndex]
@@ -106,22 +105,13 @@ struct ScreenshotInfoSheet: View {
                     }
                 }
             }
-            .onAppear {
-                // Auto-trigger parsing if no extracted data exists
-                if let screenshot = currentScreenshot,
+            .onChange(of: currentDetent) { oldValue, newValue in
+                // Only trigger parsing when sheet is expanded to large
+                // AND screenshot hasn't been parsed yet
+                if newValue == .large,
+                   let screenshot = currentScreenshot,
                    screenshot.extractedData == nil,
-                   !hasTriggeredInitialParsing {
-                    hasTriggeredInitialParsing = true
-                    refreshScreenshotData()
-                }
-            }
-            .onChange(of: currentIndex) { oldValue, newValue in
-                // Reset parsing flag when switching screenshots
-                hasTriggeredInitialParsing = false
-                // Auto-trigger parsing for new screenshot if needed
-                if let screenshot = currentScreenshot,
-                   screenshot.extractedData == nil {
-                    hasTriggeredInitialParsing = true
+                   !isRefreshing {
                     refreshScreenshotData()
                 }
             }
