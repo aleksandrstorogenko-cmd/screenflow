@@ -42,13 +42,15 @@ struct TextPreviewCard: View {
 
             // Text content card
             VStack(alignment: .leading, spacing: 0) {
-                if isMarkdown {
-                    Text(attributedText)
+                if isMarkdown, let attributed = try? AttributedString(markdown: text) {
+                    // Render parsed markdown with SwiftUI
+                    Text(attributed)
                         .textSelection(.enabled)
-                        .foregroundColor(.primary)
+                        .tint(.blue)
                         .padding(20)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
+                    // Plain text fallback
                     Text(text)
                         .font(.system(size: 17))
                         .foregroundColor(.primary)
@@ -63,61 +65,6 @@ struct TextPreviewCard: View {
             .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 2)
         }
         .padding(.top, 8)
-    }
-
-    // MARK: - Computed Properties
-
-    /// Convert markdown text to AttributedString with proper formatting
-    private var attributedText: AttributedString {
-        do {
-            // Parse markdown with full syntax support and preserve whitespace
-            var options = AttributedString.MarkdownParsingOptions(
-                interpretedSyntax: .full,
-                failurePolicy: .returnPartiallyParsedIfPossible
-            )
-            options.allowsExtendedAttributes = true
-
-            var attributed = try AttributedString(markdown: text, options: options)
-
-            // Apply paragraph spacing for better readability
-            var container = AttributeContainer()
-            container.paragraphStyle = {
-                let style = NSMutableParagraphStyle()
-                style.paragraphSpacing = 8  // Space between paragraphs
-                style.lineSpacing = 2       // Space between lines within a paragraph
-                return style
-            }()
-            attributed.mergeAttributes(container)
-
-            // Apply base font size and foreground color to all runs
-            // This ensures text is visible and properly sized while preserving markdown formatting
-            for run in attributed.runs {
-                let range = run.range
-
-                // Apply font if not set or enhance existing font
-                if run.font == nil {
-                    attributed[range].font = .system(size: 16)
-                } else {
-                    // Preserve font traits (bold, italic) but ensure size is appropriate
-                    if let existingFont = run.font {
-                        attributed[range].font = existingFont
-                    }
-                }
-
-                // Apply foreground color to ensure visibility
-                if run.foregroundColor == nil {
-                    attributed[range].foregroundColor = .primary
-                }
-            }
-
-            return attributed
-        } catch {
-            // Fallback to plain text if markdown parsing fails
-            var fallback = AttributedString(text)
-            fallback.font = .system(size: 16)
-            fallback.foregroundColor = .primary
-            return fallback
-        }
     }
 
     // MARK: - Actions
