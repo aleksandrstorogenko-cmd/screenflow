@@ -51,9 +51,6 @@ struct ScreenshotDetailView: View {
     @State private var bookmarkOptions: [BookmarkLink] = []
     @State private var selectedBookmarkIDs: Set<BookmarkLink.ID> = []
 
-    /// Re-analysis scheduler
-    @State private var reanalysisScheduler = ReanalysisScheduler()
-
     /// Track current sheet detent
     @State private var sheetDetent: PresentationDetent = .height(155)
 
@@ -93,28 +90,12 @@ struct ScreenshotDetailView: View {
                     scrollPosition = currentIndex
                     proxy.scrollTo(currentIndex, anchor: .leading)
 
-                    // Re-analyze the initial screenshot with debouncing
-                    if let currentScreenshot = allScreenshots[safe: currentIndex] {
-                        reanalysisScheduler.scheduleReanalysis(
-                            for: currentScreenshot,
-                            modelContext: modelContext
-                        )
-                    }
-
                     // Show info sheet immediately and keep it visible
                     showInfoSheet = true
                 }
                 .onChange(of: scrollPosition) { oldValue, newValue in
                     if let newValue = newValue, newValue != currentIndex {
                         currentIndex = newValue
-
-                        // Re-analyze when swiping to a different screenshot with debouncing
-                        if let currentScreenshot = allScreenshots[safe: currentIndex] {
-                            reanalysisScheduler.scheduleReanalysis(
-                                for: currentScreenshot,
-                                modelContext: modelContext
-                            )
-                        }
                     }
                 }
             }
@@ -124,9 +105,6 @@ struct ScreenshotDetailView: View {
         .navigationBarBackButtonHidden(true)
         .disableSwipeBack()
         .onDisappear {
-            // Cancel any ongoing re-analysis when leaving the view
-            reanalysisScheduler.cancelReanalysis()
-
             // Dismiss the info sheet when navigating away
             showInfoSheet = false
         }
