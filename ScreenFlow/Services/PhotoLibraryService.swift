@@ -222,51 +222,47 @@ final class PhotoLibraryService: ObservableObject {
                         }
 
                         // Analyze screenshot using new processing pipeline
-                        do {
-                            // Step 1: Classification and title generation
-                            let classificationResult = try self.screenshotAnalysisService.makeTitle(
-                                for: cgImage,
-                                captureDate: screenshot.creationDate
-                            )
-                            screenshot.title = classificationResult.title
-                            screenshot.kind = classificationResult.kind.rawValue
+                        // ✅ Run everything in a single MainActor task to ensure context consistency
+                        Task { @MainActor in
+                            do {
+                                // Step 1: Classification and title generation
+                                let classificationResult = try self.screenshotAnalysisService.makeTitle(
+                                    for: cgImage,
+                                    captureDate: screenshot.creationDate
+                                )
+                                screenshot.title = classificationResult.title
+                                screenshot.kind = classificationResult.kind.rawValue
 
-                            // Step 2: Process through new pipeline (OCR → Markdown → Entities)
-                            Task { @MainActor in
-                                do {
-                                    let processedData = try await self.processingCoordinator.process(image: image)
+                                // Step 2: Process through new pipeline (OCR → Markdown → Entities)
+                                let processedData = try await self.processingCoordinator.process(image: image)
 
-                                    // Convert pipeline output to SwiftData model
-                                    let extractedData = ExtractedDataAdapter.toSwiftDataModel(processedData)
+                                // Convert pipeline output to SwiftData model
+                                let extractedData = ExtractedDataAdapter.toSwiftDataModel(processedData)
 
-                                    // ✅ Insert into context BEFORE setting relationships
-                                    modelContext.insert(extractedData)
+                                // ✅ Insert into context BEFORE setting relationships
+                                modelContext.insert(extractedData)
 
-                                    // Link to screenshot
-                                    extractedData.screenshot = screenshot
-                                    screenshot.extractedData = extractedData
+                                // Link to screenshot
+                                extractedData.screenshot = screenshot
+                                screenshot.extractedData = extractedData
 
-                                    // Generate smart actions
-                                    let actions = self.actionGenerationService.generateActions(from: extractedData)
+                                // Generate smart actions
+                                let actions = self.actionGenerationService.generateActions(from: extractedData)
 
-                                    // Link actions to screenshot
-                                    for action in actions {
-                                        // ✅ Insert each action into context BEFORE setting relationships
-                                        modelContext.insert(action)
-                                        action.screenshot = screenshot
-                                        screenshot.smartActions.append(action)
-                                    }
-
-                                    continuation.resume()
-                                } catch {
-                                    print("Failed to process screenshot through pipeline: \(error)")
-                                    continuation.resume()
+                                // Link actions to screenshot
+                                for action in actions {
+                                    // ✅ Insert each action into context BEFORE setting relationships
+                                    modelContext.insert(action)
+                                    action.screenshot = screenshot
+                                    screenshot.smartActions.append(action)
                                 }
+
+                                continuation.resume()
+                            } catch {
+                                // If processing fails, leave title and kind as nil
+                                print("Failed to process screenshot: \(error)")
+                                continuation.resume()
                             }
-                        } catch {
-                            // If classification fails, leave title and kind as nil
-                            print("Failed to classify screenshot: \(error)")
-                            continuation.resume()
                         }
                     }
                 }
@@ -307,8 +303,18 @@ final class PhotoLibraryService: ObservableObject {
                         // Re-process through new pipeline
                         Task { @MainActor in
                             do {
-                                // Clear old extracted data and actions
-                                screenshot.extractedData = nil
+                                // ✅ Explicitly delete old extracted data and actions to avoid backing data errors
+                                // Must delete from context before setting relationships to nil
+                                if let oldExtractedData = screenshot.extractedData {
+                                    modelContext.delete(oldExtractedData)
+                                    screenshot.extractedData = nil
+                                }
+
+                                // Delete all old smart actions
+                                let oldActions = screenshot.smartActions
+                                for action in oldActions {
+                                    modelContext.delete(action)
+                                }
                                 screenshot.smartActions.removeAll()
 
                                 // Process through new pipeline (OCR → Markdown → Entities)
