@@ -54,6 +54,9 @@ struct ScreenshotDetailView: View {
     /// Re-analysis scheduler
     @State private var reanalysisScheduler = ReanalysisScheduler()
 
+    /// Track current sheet detent
+    @State private var sheetDetent: PresentationDetent = .height(155)
+
     // MARK: - Initialization
 
     init(screenshot: Screenshot, allScreenshots: [Screenshot]) {
@@ -152,9 +155,10 @@ struct ScreenshotDetailView: View {
         .sheet(isPresented: $showInfoSheet) {
             ScreenshotInfoSheet(
                 allScreenshots: allScreenshots,
-                currentIndex: $currentIndex
+                currentIndex: $currentIndex,
+                currentDetent: $sheetDetent
             )
-            .presentationDetents([.height(155), .large])
+            .presentationDetents([.height(155), .large], selection: $sheetDetent)
             .presentationDragIndicator(.visible)
             .interactiveDismissDisabled(true)
             .presentationBackgroundInteraction(.enabled)
