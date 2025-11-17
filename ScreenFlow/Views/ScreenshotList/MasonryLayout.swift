@@ -15,14 +15,17 @@ struct MasonryLayout<Content: View>: View {
     /// Spacing between items
     let spacing: CGFloat = 8
 
+    /// Whether we can load more content
+    let canLoadMore: Bool
+
+    /// Whether a page request is already in progress
+    let isLoadingMore: Bool
+
     /// Callback when more items should be loaded
     let onLoadMore: () -> Void
 
     /// Content builder for each item
     @ViewBuilder let content: (Screenshot, Bool) -> Content
-
-    /// Track if we're currently loading more
-    @State private var isLoadingMore = false
 
     var body: some View {
         GeometryReader { geometry in
@@ -76,7 +79,7 @@ struct MasonryLayout<Content: View>: View {
 
     /// Check if we should load more items
     private func checkAndLoadMore(screenshot: Screenshot, index: Int, columnItems: [Screenshot]) {
-        // Skip if already loading
+        guard canLoadMore else { return }
         guard !isLoadingMore else { return }
 
         // Load more when we're 5 items from the end of either column
@@ -84,14 +87,7 @@ struct MasonryLayout<Content: View>: View {
             // Also check if this screenshot is near the end of the total list
             if let totalIndex = screenshots.firstIndex(where: { $0.id == screenshot.id }),
                totalIndex >= screenshots.count - 5 {
-                isLoadingMore = true
                 onLoadMore()
-
-                // Reset loading state after a delay
-                Task {
-                    try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
-                    isLoadingMore = false
-                }
             }
         }
     }

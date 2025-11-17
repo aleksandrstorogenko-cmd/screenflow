@@ -16,6 +16,12 @@ struct ScreenshotListContentView: View {
     /// All screenshots for navigation (not paginated)
     let allScreenshots: [Screenshot]
 
+    /// Indicates if pagination is currently loading next page
+    let isLoadingMore: Bool
+
+    /// Indicates if more items are available to load
+    let canLoadMore: Bool
+
     /// Selected screenshots for bulk operations
     @Binding var selectedScreenshots: Set<Screenshot.ID>
 
@@ -28,9 +34,6 @@ struct ScreenshotListContentView: View {
     /// Edit mode state
     @Environment(\.editMode) private var editMode
 
-    /// Loading state for pagination
-    @State private var isLoadingMore = false
-
     /// Whether we're in edit mode
     private var isEditMode: Bool {
         editMode?.wrappedValue.isEditing ?? false
@@ -38,7 +41,12 @@ struct ScreenshotListContentView: View {
 
     var body: some View {
         ZStack {
-            MasonryLayout(screenshots: screenshots, onLoadMore: handleLoadMore) { screenshot, isLastInColumn in
+            MasonryLayout(
+                screenshots: screenshots,
+                canLoadMore: canLoadMore,
+                isLoadingMore: isLoadingMore,
+                onLoadMore: onLoadMore
+            ) { screenshot, isLastInColumn in
                 if isEditMode {
                     // In edit mode, just show the card without navigation
                     ScreenshotCardView(screenshot: screenshot, selectedScreenshots: $selectedScreenshots)
@@ -57,20 +65,6 @@ struct ScreenshotListContentView: View {
                 screenshot: screenshot,
                 allScreenshots: allScreenshots
             )
-        }
-    }
-
-    /// Handle load more with debouncing
-    private func handleLoadMore() {
-        guard !isLoadingMore else { return }
-
-        isLoadingMore = true
-        onLoadMore()
-
-        // Reset loading state after a short delay to prevent rapid firing
-        Task {
-            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
-            isLoadingMore = false
         }
     }
 }

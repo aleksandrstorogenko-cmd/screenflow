@@ -26,6 +26,9 @@ struct ScreenshotListView: View {
     /// Screenshot service
     private let screenshotService = ScreenshotService.shared
 
+    /// Pagination view model responsible for batching items
+    @StateObject private var paginationViewModel = ScreenshotPaginationViewModel(pageSize: 20)
+
     /// Edit mode state
     @State private var editMode: EditMode = .inactive
 
@@ -41,14 +44,14 @@ struct ScreenshotListView: View {
     /// Permission denied alert
     @State private var showPermissionAlert = false
 
-    /// Number of items to display (for pagination)
-    @State private var displayLimit = 20
-
     /// Filter option: today or all
     @State private var showTodayOnly = true
 
     /// Background title generation task
     @State private var titleGenerationTask: Task<Void, Never>?
+
+    /// Track whether pagination has been configured at least once
+    @State private var hasInitializedPagination = false
 
     var body: some View {
         NavigationStack {
@@ -62,8 +65,10 @@ struct ScreenshotListView: View {
                 } else {
                     // Main list view
                     ScreenshotListContentView(
-                        screenshots: filteredScreenshots,
-                        allScreenshots: allFilteredScreenshots,
+                        screenshots: paginationViewModel.visibleScreenshots,
+                        allScreenshots: filteredScreenshots,
+                        isLoadingMore: paginationViewModel.isLoadingPage,
+                        canLoadMore: paginationViewModel.canLoadMore,
                         selectedScreenshots: $selectedScreenshots,
                         onDelete: deleteScreenshot,
                         onLoadMore: loadMoreItems
@@ -85,6 +90,11 @@ struct ScreenshotListView: View {
             .task {
                 await requestPermissionAndSync()
             }
+            .onAppear {
+                guard !hasInitializedPagination else { return }
+                paginationViewModel.updateSourceScreenshots(filteredScreenshots, forceReset: true)
+                hasInitializedPagination = true
+            }
             .refreshable {
                 await syncScreenshots()
             }
@@ -97,8 +107,10 @@ struct ScreenshotListView: View {
                 }
             }
             .onChange(of: showTodayOnly) { oldValue, newValue in
-                // Reset pagination when filter changes
-                displayLimit = 20
+                paginationViewModel.updateSourceScreenshots(filteredScreenshots, forceReset: true)
+            }
+            .onChange(of: allScreenshots.map(\.assetIdentifier)) { _ in
+                paginationViewModel.updateSourceScreenshots(filteredScreenshots)
             }
             .alert("Photo Library Access Required", isPresented: $showPermissionAlert) {
                 Button("Settings", action: openSettings)
@@ -111,29 +123,12 @@ struct ScreenshotListView: View {
 
     // MARK: - Computed Properties
 
-    /// Filtered screenshots based on search text, date filter, and pagination
+    /// Filtered screenshots based on search text and date filter
     private var filteredScreenshots: [Screenshot] {
         screenshotService.filterScreenshots(
             allScreenshots,
             showTodayOnly: showTodayOnly,
-            limit: displayLimit
-        )
-    }
-
-    /// All filtered screenshots without pagination (for navigation)
-    private var allFilteredScreenshots: [Screenshot] {
-        screenshotService.filterScreenshots(
-            allScreenshots,
-            showTodayOnly: showTodayOnly,
             limit: Int.max
-        )
-    }
-
-    /// Get total count for subtitle (before pagination)
-    private var totalFilteredCount: Int {
-        screenshotService.getFilteredCount(
-            allScreenshots,
-            showTodayOnly: showTodayOnly
         )
     }
 
@@ -176,7 +171,7 @@ struct ScreenshotListView: View {
 
     /// Load more items (pagination)
     private func loadMoreItems() {
-        displayLimit += 20
+        paginationViewModel.loadNextPageIfNeeded()
     }
 
     /// Open Settings app
