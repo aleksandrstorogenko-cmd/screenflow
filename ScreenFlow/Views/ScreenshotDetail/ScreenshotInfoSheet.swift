@@ -149,12 +149,12 @@ struct MetadataSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if showTitle {
-                Text("Info")
-                    .font(.headline)
-                    .padding(.horizontal)
-                    .transition(.opacity)
-            }
+//            if showTitle {
+//                Text("Info")
+//                    .font(.headline)
+//                    .padding(.horizontal)
+//                    .transition(.opacity)
+//            }
 
             VStack(spacing: 8) {
                 MetadataRow(label: "File Name", value: screenshot.fileName)
