@@ -73,21 +73,6 @@ struct ScreenshotCardView: View {
 
             // Title overlay
             VStack(alignment: .leading, spacing: 6) {
-                // Kind icon and title
-                HStack(spacing: 6) {
-                    if let kind = screenshot.kind {
-                        Image(systemName: iconForKind(kind))
-                            .font(.subheadline)
-                            .foregroundColor(.blue)
-                    }
-
-                    Text(screenshot.title ?? screenshot.fileName)
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .lineLimit(2)
-                        .foregroundColor(.primary)
-                }
-
                 // Date
                 Text(screenshot.creationDate.screenshotDateString)
                     .font(.footnote)
