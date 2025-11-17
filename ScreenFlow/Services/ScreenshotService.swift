@@ -24,13 +24,11 @@ final class ScreenshotService {
     /// Filter screenshots based on search text and date filter
     /// - Parameters:
     ///   - screenshots: Array of all screenshots
-    ///   - searchText: Search query string
     ///   - showTodayOnly: Whether to filter for today's screenshots only
     ///   - limit: Maximum number of items to return (for pagination)
     /// - Returns: Filtered array of screenshots
     func filterScreenshots(
         _ screenshots: [Screenshot],
-        searchText: String,
         showTodayOnly: Bool,
         limit: Int
     ) -> [Screenshot] {
@@ -45,14 +43,6 @@ final class ScreenshotService {
             }
         }
 
-        // Apply search filter
-        if !searchText.isEmpty {
-            filtered = filtered.filter { screenshot in
-                screenshot.fileName.localizedCaseInsensitiveContains(searchText) ||
-                screenshot.title?.localizedCaseInsensitiveContains(searchText) == true
-            }
-        }
-
         // Apply pagination limit
         return Array(filtered.prefix(limit))
     }
@@ -60,12 +50,10 @@ final class ScreenshotService {
     /// Get total count of filtered screenshots (without pagination limit)
     /// - Parameters:
     ///   - screenshots: Array of all screenshots
-    ///   - searchText: Search query string
     ///   - showTodayOnly: Whether to filter for today's screenshots only
     /// - Returns: Total count of filtered screenshots
     func getFilteredCount(
         _ screenshots: [Screenshot],
-        searchText: String,
         showTodayOnly: Bool
     ) -> Int {
         var filtered = screenshots
@@ -76,14 +64,6 @@ final class ScreenshotService {
             let today = calendar.startOfDay(for: Date())
             filtered = filtered.filter { screenshot in
                 calendar.isDate(screenshot.creationDate, inSameDayAs: today)
-            }
-        }
-
-        // Apply search filter
-        if !searchText.isEmpty {
-            filtered = filtered.filter { screenshot in
-                screenshot.fileName.localizedCaseInsensitiveContains(searchText) ||
-                screenshot.title?.localizedCaseInsensitiveContains(searchText) == true
             }
         }
 

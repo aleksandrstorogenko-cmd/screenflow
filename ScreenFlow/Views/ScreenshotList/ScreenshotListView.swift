@@ -32,9 +32,6 @@ struct ScreenshotListView: View {
     /// Selected screenshots for bulk operations
     @State private var selectedScreenshots = Set<Screenshot.ID>()
 
-    /// Search text
-    @State private var searchText = ""
-
     /// Refresh trigger
     @State private var isRefreshing = false
 
@@ -84,7 +81,6 @@ struct ScreenshotListView: View {
                     onDeleteSelected: deleteSelectedScreenshots
                 )
             }
-            .searchable(text: $searchText, placement: .toolbarPrincipal, prompt: "Search")
             .environment(\.editMode, $editMode)
             .task {
                 await requestPermissionAndSync()
@@ -104,14 +100,6 @@ struct ScreenshotListView: View {
                 // Reset pagination when filter changes
                 displayLimit = 20
             }
-            .onChange(of: searchText) { oldValue, newValue in
-                // Reset pagination when search changes
-                displayLimit = 20
-            }
-            .onDisappear {
-                // Cancel background task when view disappears
-                titleGenerationTask?.cancel()
-            }
             .alert("Photo Library Access Required", isPresented: $showPermissionAlert) {
                 Button("Settings", action: openSettings)
                 Button("Cancel", role: .cancel) { }
@@ -127,7 +115,6 @@ struct ScreenshotListView: View {
     private var filteredScreenshots: [Screenshot] {
         screenshotService.filterScreenshots(
             allScreenshots,
-            searchText: searchText,
             showTodayOnly: showTodayOnly,
             limit: displayLimit
         )
@@ -137,7 +124,6 @@ struct ScreenshotListView: View {
     private var allFilteredScreenshots: [Screenshot] {
         screenshotService.filterScreenshots(
             allScreenshots,
-            searchText: searchText,
             showTodayOnly: showTodayOnly,
             limit: Int.max
         )
@@ -147,7 +133,6 @@ struct ScreenshotListView: View {
     private var totalFilteredCount: Int {
         screenshotService.getFilteredCount(
             allScreenshots,
-            searchText: searchText,
             showTodayOnly: showTodayOnly
         )
     }
@@ -163,11 +148,6 @@ struct ScreenshotListView: View {
         }
 
         isLoading = false
-
-        // Start background title generation after initial sync completes
-        if granted {
-            startBackgroundTitleGeneration()
-        }
     }
 
     /// Sync screenshots from photo library
@@ -175,9 +155,6 @@ struct ScreenshotListView: View {
         isRefreshing = true
         await screenshotService.syncScreenshots(modelContext: modelContext)
         isRefreshing = false
-
-        // Start background title generation after sync completes
-        startBackgroundTitleGeneration()
     }
 
     /// Delete a single screenshot from the app
@@ -206,34 +183,6 @@ struct ScreenshotListView: View {
     private func openSettings() {
         if let url = URL(string: UIApplication.openSettingsURLString) {
             UIApplication.shared.open(url)
-        }
-    }
-
-    /// Start background title generation for screenshots that don't have titles
-    /// This is called ONLY after sync operations complete, not during scrolling
-    private func startBackgroundTitleGeneration() {
-        // Cancel any existing task
-        titleGenerationTask?.cancel()
-
-        // Start a new background task
-        titleGenerationTask = Task {
-            // Get ALL screenshots that need titles (not just filtered/paginated ones)
-            let screenshotsNeedingTitles = allScreenshots.filter { $0.title == nil }
-
-            // Process them one at a time with delays to avoid UI freeze
-            for screenshot in screenshotsNeedingTitles {
-                // Check if task was cancelled
-                guard !Task.isCancelled else { return }
-
-                // Generate title for this screenshot
-                await photoLibraryService.generateTitleIfNeeded(
-                    for: screenshot,
-                    modelContext: modelContext
-                )
-
-                // Wait before processing next one to keep UI responsive
-                try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds between each
-            }
         }
     }
 }
