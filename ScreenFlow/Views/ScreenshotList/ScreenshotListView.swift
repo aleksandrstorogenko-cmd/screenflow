@@ -108,10 +108,6 @@ struct ScreenshotListView: View {
                 // Reset pagination when search changes
                 displayLimit = 20
             }
-            .onChange(of: filteredScreenshots) { oldValue, newValue in
-                // Start background title generation for new screenshots
-                startBackgroundTitleGeneration()
-            }
             .onDisappear {
                 // Cancel background task when view disappears
                 titleGenerationTask?.cancel()
@@ -167,6 +163,11 @@ struct ScreenshotListView: View {
         }
 
         isLoading = false
+
+        // Start background title generation after initial sync completes
+        if granted {
+            startBackgroundTitleGeneration()
+        }
     }
 
     /// Sync screenshots from photo library
@@ -174,6 +175,9 @@ struct ScreenshotListView: View {
         isRefreshing = true
         await screenshotService.syncScreenshots(modelContext: modelContext)
         isRefreshing = false
+
+        // Start background title generation after sync completes
+        startBackgroundTitleGeneration()
     }
 
     /// Delete a single screenshot from the app
@@ -206,14 +210,15 @@ struct ScreenshotListView: View {
     }
 
     /// Start background title generation for screenshots that don't have titles
+    /// This is called ONLY after sync operations complete, not during scrolling
     private func startBackgroundTitleGeneration() {
         // Cancel any existing task
         titleGenerationTask?.cancel()
 
         // Start a new background task
         titleGenerationTask = Task {
-            // Get screenshots that need titles
-            let screenshotsNeedingTitles = filteredScreenshots.filter { $0.title == nil }
+            // Get ALL screenshots that need titles (not just filtered/paginated ones)
+            let screenshotsNeedingTitles = allScreenshots.filter { $0.title == nil }
 
             // Process them one at a time with delays to avoid UI freeze
             for screenshot in screenshotsNeedingTitles {
