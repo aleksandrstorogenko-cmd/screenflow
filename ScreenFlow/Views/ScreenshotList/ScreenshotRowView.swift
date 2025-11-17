@@ -19,9 +19,6 @@ struct ScreenshotRowView: View {
     /// Thumbnail image state
     @State private var thumbnailImage: UIImage?
 
-    /// Track if we're currently generating title
-    @State private var isGeneratingTitle = false
-
     var body: some View {
         HStack(spacing: 12) {
             // Thumbnail on the left
@@ -65,7 +62,6 @@ struct ScreenshotRowView: View {
         .padding(.vertical, 4)
         .onAppear {
             loadThumbnail()
-            generateTitleIfNeeded()
         }
     }
 
@@ -73,22 +69,6 @@ struct ScreenshotRowView: View {
     private func loadThumbnail() {
         PhotoLibraryService.shared.fetchThumbnail(for: screenshot) { image in
             thumbnailImage = image
-        }
-    }
-
-    /// Generate title for screenshot if it doesn't have one
-    private func generateTitleIfNeeded() {
-        // Skip if already has a title or already generating
-        guard screenshot.title == nil && !isGeneratingTitle else { return }
-
-        isGeneratingTitle = true
-
-        Task {
-            await PhotoLibraryService.shared.generateTitleIfNeeded(
-                for: screenshot,
-                modelContext: modelContext
-            )
-            isGeneratingTitle = false
         }
     }
 
