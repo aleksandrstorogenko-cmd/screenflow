@@ -157,7 +157,7 @@ final class PhotoLibraryService: ObservableObject {
         await extractionQueue.waitForSlot()
 
         // Analyze and generate title
-        await analyzeScreenshot(screenshot, asset: asset)
+        await analyzeScreenshot(screenshot, asset: asset, modelContext: modelContext)
 
         // Mark as completed in cache
         await extractionCache.markCompleted(screenshot.assetIdentifier)
@@ -181,7 +181,7 @@ final class PhotoLibraryService: ObservableObject {
         await extractionQueue.waitForSlot()
 
         // Re-analyze (extract entities and generate actions)
-        await reanalyzeScreenshotData(screenshot, asset: asset)
+        await reanalyzeScreenshotData(screenshot, asset: asset, modelContext: modelContext)
 
         // Release the slot
         await extractionQueue.releaseSlot()
@@ -195,7 +195,8 @@ final class PhotoLibraryService: ObservableObject {
     /// - Parameters:
     ///   - screenshot: Screenshot model to update
     ///   - asset: PHAsset to analyze
-    private func analyzeScreenshot(_ screenshot: Screenshot, asset: PHAsset) async {
+    ///   - modelContext: SwiftData model context
+    private func analyzeScreenshot(_ screenshot: Screenshot, asset: PHAsset, modelContext: ModelContext) async {
         await withCheckedContinuation { continuation in
             autoreleasepool {
                 let options = PHImageRequestOptions()
@@ -231,12 +232,15 @@ final class PhotoLibraryService: ObservableObject {
                             screenshot.kind = classificationResult.kind.rawValue
 
                             // Step 2: Process through new pipeline (OCR → Markdown → Entities)
-                            Task {
+                            Task { @MainActor in
                                 do {
                                     let processedData = try await self.processingCoordinator.process(image: image)
 
                                     // Convert pipeline output to SwiftData model
                                     let extractedData = ExtractedDataAdapter.toSwiftDataModel(processedData)
+
+                                    // ✅ Insert into context BEFORE setting relationships
+                                    modelContext.insert(extractedData)
 
                                     // Link to screenshot
                                     extractedData.screenshot = screenshot
@@ -247,6 +251,8 @@ final class PhotoLibraryService: ObservableObject {
 
                                     // Link actions to screenshot
                                     for action in actions {
+                                        // ✅ Insert each action into context BEFORE setting relationships
+                                        modelContext.insert(action)
                                         action.screenshot = screenshot
                                         screenshot.smartActions.append(action)
                                     }
@@ -272,7 +278,8 @@ final class PhotoLibraryService: ObservableObject {
     /// - Parameters:
     ///   - screenshot: Screenshot model to update
     ///   - asset: PHAsset to analyze
-    private func reanalyzeScreenshotData(_ screenshot: Screenshot, asset: PHAsset) async {
+    ///   - modelContext: SwiftData model context
+    private func reanalyzeScreenshotData(_ screenshot: Screenshot, asset: PHAsset, modelContext: ModelContext) async {
         await withCheckedContinuation { continuation in
             autoreleasepool {
                 let options = PHImageRequestOptions()
@@ -298,7 +305,7 @@ final class PhotoLibraryService: ObservableObject {
                         }
 
                         // Re-process through new pipeline
-                        Task {
+                        Task { @MainActor in
                             do {
                                 // Clear old extracted data and actions
                                 screenshot.extractedData = nil
@@ -310,6 +317,9 @@ final class PhotoLibraryService: ObservableObject {
                                 // Convert pipeline output to SwiftData model
                                 let extractedData = ExtractedDataAdapter.toSwiftDataModel(processedData)
 
+                                // ✅ Insert into context BEFORE setting relationships
+                                modelContext.insert(extractedData)
+
                                 // Link to screenshot
                                 extractedData.screenshot = screenshot
                                 screenshot.extractedData = extractedData
@@ -319,6 +329,8 @@ final class PhotoLibraryService: ObservableObject {
 
                                 // Link actions to screenshot
                                 for action in actions {
+                                    // ✅ Insert each action into context BEFORE setting relationships
+                                    modelContext.insert(action)
                                     action.screenshot = screenshot
                                     screenshot.smartActions.append(action)
                                 }
