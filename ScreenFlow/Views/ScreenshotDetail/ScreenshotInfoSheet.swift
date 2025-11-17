@@ -12,9 +12,11 @@ import SwiftData
 struct ScreenshotInfoSheet: View {
     let allScreenshots: [Screenshot]
     @Binding var currentIndex: Int
+    @Binding var currentDetent: PresentationDetent
 
     @Environment(\.modelContext) private var modelContext
     @State private var isRefreshing = false
+    @State private var hasTriggeredInitialParsing = false
 
     private var currentScreenshot: Screenshot? {
         allScreenshots[safe: currentIndex]
@@ -49,7 +51,7 @@ struct ScreenshotInfoSheet: View {
                                     ProgressView()
                                         .progressViewStyle(.circular)
                                         .scaleEffect(1.2)
-                                    Text("Re-analyzing screenshot...")
+                                    Text("Analyzing screenshot...")
                                         .font(.subheadline)
                                         .foregroundColor(.secondary)
                                 }
@@ -57,19 +59,6 @@ struct ScreenshotInfoSheet: View {
                                 .padding(.vertical, 40)
                             } else if let extractedData = screenshot.extractedData {
                                 ExtractedDataSection(data: extractedData)
-                            } else {
-                                // No data yet - show hint to use refresh button
-                                VStack(spacing: 12) {
-                                    Image(systemName: "arrow.clockwise.circle")
-                                        .font(.system(size: 48))
-                                        .foregroundColor(.secondary)
-                                    Text("Tap the refresh button to analyze this screenshot")
-                                        .font(.subheadline)
-                                        .foregroundColor(.secondary)
-                                        .multilineTextAlignment(.center)
-                                }
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 40)
                             }
                         } else {
                             Text("No screenshot selected")
@@ -86,17 +75,39 @@ struct ScreenshotInfoSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        refreshScreenshotData()
-                    } label: {
-                        if isRefreshing {
-                            ProgressView()
-                                .progressViewStyle(.circular)
-                        } else {
-                            Label("Refresh", systemImage: "arrow.clockwise")
+                    // Only show refresh button when in large detent
+                    if currentDetent == .large {
+                        Button {
+                            refreshScreenshotData()
+                        } label: {
+                            if isRefreshing {
+                                ProgressView()
+                                    .progressViewStyle(.circular)
+                            } else {
+                                Label("Refresh", systemImage: "arrow.clockwise")
+                            }
                         }
+                        .disabled(isRefreshing || currentScreenshot == nil)
                     }
-                    .disabled(isRefreshing || currentScreenshot == nil)
+                }
+            }
+            .onAppear {
+                // Auto-trigger parsing if no extracted data exists
+                if let screenshot = currentScreenshot,
+                   screenshot.extractedData == nil,
+                   !hasTriggeredInitialParsing {
+                    hasTriggeredInitialParsing = true
+                    refreshScreenshotData()
+                }
+            }
+            .onChange(of: currentIndex) { oldValue, newValue in
+                // Reset parsing flag when switching screenshots
+                hasTriggeredInitialParsing = false
+                // Auto-trigger parsing for new screenshot if needed
+                if let screenshot = currentScreenshot,
+                   screenshot.extractedData == nil {
+                    hasTriggeredInitialParsing = true
+                    refreshScreenshotData()
                 }
             }
         }

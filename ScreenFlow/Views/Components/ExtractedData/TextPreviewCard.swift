@@ -45,6 +45,7 @@ struct TextPreviewCard: View {
                 if isMarkdown {
                     Text(attributedText)
                         .textSelection(.enabled)
+                        .foregroundColor(.primary)
                         .padding(20)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
@@ -79,7 +80,6 @@ struct TextPreviewCard: View {
             var attributed = try AttributedString(markdown: text, options: options)
 
             // Apply paragraph spacing for better readability
-            // This is applied using mergeAttributes which won't override existing formatting
             var container = AttributeContainer()
             container.paragraphStyle = {
                 let style = NSMutableParagraphStyle()
@@ -89,12 +89,24 @@ struct TextPreviewCard: View {
             }()
             attributed.mergeAttributes(container)
 
-            // Apply base font size to parts without specific font attributes
-            // This preserves markdown-generated bold, italic, and heading styles
+            // Apply base font size and foreground color to all runs
+            // This ensures text is visible and properly sized while preserving markdown formatting
             for run in attributed.runs {
+                let range = run.range
+
+                // Apply font if not set or enhance existing font
                 if run.font == nil {
-                    let range = run.range
                     attributed[range].font = .system(size: 16)
+                } else {
+                    // Preserve font traits (bold, italic) but ensure size is appropriate
+                    if let existingFont = run.font {
+                        attributed[range].font = existingFont
+                    }
+                }
+
+                // Apply foreground color to ensure visibility
+                if run.foregroundColor == nil {
+                    attributed[range].foregroundColor = .primary
                 }
             }
 
@@ -103,6 +115,7 @@ struct TextPreviewCard: View {
             // Fallback to plain text if markdown parsing fails
             var fallback = AttributedString(text)
             fallback.font = .system(size: 16)
+            fallback.foregroundColor = .primary
             return fallback
         }
     }
