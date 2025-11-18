@@ -31,6 +31,11 @@ struct MasonryLayout<Content: View>: View {
         GeometryReader { geometry in
             ScrollView {
                 VStack(spacing: 0) {
+                    // Scroll offset tracker at the top
+                    Color.clear
+                        .frame(height: 0)
+                        .readScrollOffset(coordinateSpace: "masonryScroll")
+
                     HStack(alignment: .top, spacing: spacing) {
                         LazyVStack(spacing: spacing) {
                             ForEach(Array(leftColumnItems.enumerated()), id: \.element.id) { index, screenshot in
@@ -64,6 +69,7 @@ struct MasonryLayout<Content: View>: View {
                     }
                 }
             }
+            .coordinateSpace(name: "masonryScroll")
         }
     }
 
