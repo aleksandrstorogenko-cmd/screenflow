@@ -90,7 +90,6 @@ ScreenFlow/
 │   ├── PermissionService.swift   # Photo library permissions
 │   ├── ScreenshotAnalysisService.swift # Screenshot classification, OCR, and title generation
 │   ├── EntityExtraction/         # Entity extraction services
-│   │   ├── EntityExtractionService.swift
 │   │   ├── BasicEntityExtractor.swift
 │   │   ├── EventDetector.swift
 │   │   ├── ContactDetector.swift
@@ -217,7 +216,7 @@ ScreenFlow.xcodeproj/             # Xcode project configuration
 **Dependencies:**
 - `PermissionService`
 - `ScreenshotAnalysisService`
-- `EntityExtractionService`
+- `ScreenshotProcessingCoordinator` (new pipeline)
 - `ActionGenerationService`
 - `ExtractionQueue`
 - `ExtractionCache`
@@ -227,17 +226,22 @@ ScreenFlow.xcodeproj/             # Xcode project configuration
 - `syncScreenshots(context: ModelContext)`
 - `loadImage(for: PHAsset) -> UIImage?`
 
-### EntityExtractionService (ScreenFlow/Services/EntityExtraction/)
+### ScreenshotProcessingCoordinator (ScreenFlow/Services/Pipeline/)
 
-**Singleton:** `EntityExtractionService.shared`
+**Singleton:** `ScreenshotProcessingCoordinator.shared`
 
 **Responsibilities:**
-- Extract text using Vision OCR
-- Detect language using Natural Language
-- Extract basic entities (URLs, emails, phones, addresses)
-- Detect events and calendar information
-- Detect contact/business card information
-- Coordinate object detection
+- Orchestrate complete screenshot processing pipeline
+- Coordinate OCR extraction
+- Convert OCR blocks to Markdown (with Apple Intelligence support)
+- Extract entities from text
+- Assemble final processed data
+
+**Pipeline Stages:**
+1. `OCRService`: Extract text blocks and raw text
+2. `MarkdownConverterService`: Convert OCR blocks to Markdown
+3. `EntityExtractionPipelineService`: Extract structured entities
+4. `ExtractedDataBuilder`: Build final output
 
 **Components:**
 - `BasicEntityExtractor`: Extracts URLs, emails, phone numbers, addresses
@@ -397,9 +401,10 @@ struct SomeView: View {
 
 1. Add properties to `ExtractedData.swift`
 2. Create extraction logic in appropriate detector service
-3. Update `EntityExtractionService.swift` to call new detector
-4. Create UI card component in `Views/Components/ExtractedData/`
-5. Add card to `ExtractedDataSection.swift`
+3. Update `EntityExtractionPipelineService.swift` to call new detector
+4. Update `ExtractedDataAdapter.swift` to map to SwiftData model
+5. Create UI card component in `Views/Components/ExtractedData/`
+6. Add card to `ExtractedDataSection.swift`
 
 ### Adding a New Smart Action Type
 
@@ -420,10 +425,13 @@ struct SomeView: View {
 ### Modifying the Extraction Pipeline
 
 The extraction pipeline in `PhotoLibraryService.swift`:
-1. Screenshot analysis - OCR, scene classification, and title generation (`ScreenshotAnalysisService`)
-2. Entity extraction - URLs, emails, phones, events, contacts (`EntityExtractionService`)
-3. Object detection - ML-based object recognition (`ObjectDetectionService`)
-4. Action generation - Context-aware smart actions (`ActionGenerationService`)
+1. Screenshot classification and title generation (`ScreenshotAnalysisService`)
+2. Complete processing pipeline (`ScreenshotProcessingCoordinator`):
+   - OCR extraction (`OCRService`)
+   - Markdown conversion with Apple Intelligence (`MarkdownConverterService`)
+   - Entity extraction (`EntityExtractionPipelineService`)
+   - Data assembly (`ExtractedDataBuilder`)
+3. Action generation - Context-aware smart actions (`ActionGenerationService`)
 
 Modifications should maintain this order and handle errors gracefully.
 
@@ -566,8 +574,11 @@ When working on specific features, reference these files:
 
 **Core Services:**
 - `ScreenFlow/Services/PhotoLibraryService.swift` (main orchestrator)
-- `ScreenFlow/Services/ScreenshotAnalysisService.swift` (classification, OCR, title generation)
-- `ScreenFlow/Services/EntityExtraction/EntityExtractionService.swift`
+- `ScreenFlow/Services/ScreenshotAnalysisService.swift` (classification, title generation)
+- `ScreenFlow/Services/Pipeline/ScreenshotProcessingCoordinator.swift` (processing pipeline)
+- `ScreenFlow/Services/Pipeline/OCRService.swift` (OCR extraction)
+- `ScreenFlow/Services/Pipeline/MarkdownConverterService.swift` (Markdown conversion)
+- `ScreenFlow/Services/Pipeline/EntityExtractionPipelineService.swift` (entity extraction)
 - `ScreenFlow/Services/ObjectDetection/ObjectDetectionService.swift`
 - `ScreenFlow/Services/ActionGeneration/ActionGenerationService.swift`
 

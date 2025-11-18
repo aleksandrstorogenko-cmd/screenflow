@@ -238,11 +238,15 @@ XCTAssertFalse(result.formattedText.isEmpty)
 
 ## Migration Guide
 
-### From Old Architecture
+### ✅ Migration Complete
 
-**Old way:**
+The codebase has been successfully migrated to the new pipeline architecture. The deprecated services (`EntityExtractionService` and `TextFormatterService`) have been removed.
+
+### From Old Architecture (Reference)
+
+**Old way (deprecated, removed):**
 ```swift
-// Old: Separate OCR and entity extraction
+// OLD: Separate OCR and entity extraction (no longer available)
 let analysisResult = try screenshotAnalysisService.makeTitle(for: cgImage, ...)
 let extractedData = await entityExtractionService.extractEntities(
     from: analysisResult.fullText,
@@ -251,19 +255,21 @@ let extractedData = await entityExtractionService.extractEntities(
 )
 ```
 
-**New way:**
+**Current way:**
 ```swift
-// New: Unified pipeline
+// NEW: Unified pipeline (current implementation)
+let coordinator = ScreenshotProcessingCoordinator.shared
 let processedData = try await coordinator.process(image: image)
 let extractedData = ExtractedDataAdapter.toSwiftDataModel(processedData)
 ```
 
-**Benefits:**
-- Single call instead of multiple services
-- No redundant OCR processing
-- Better Markdown formatting with Apple Intelligence
-- Cleaner error handling
-- More testable code
+**Benefits Achieved:**
+- ✅ Single call instead of multiple services
+- ✅ No redundant OCR processing
+- ✅ Better Markdown formatting with Apple Intelligence
+- ✅ Cleaner error handling
+- ✅ More testable code
+- ✅ Modular pipeline architecture
 
 ## Apple Intelligence Integration
 
