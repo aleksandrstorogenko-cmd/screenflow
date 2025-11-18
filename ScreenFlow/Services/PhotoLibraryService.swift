@@ -309,7 +309,7 @@ final class PhotoLibraryService: ObservableObject {
                     autoreleasepool {
                         guard let self = self,
                               let image = image,
-                              let cgImage = image.cgImage else {
+                              let _ = image.cgImage else {
                             continuation.resume()
                             return
                         }

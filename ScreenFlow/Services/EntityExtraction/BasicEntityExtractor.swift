@@ -43,7 +43,7 @@ final class BasicEntityExtractor {
                 }
 
             case .address:
-                if let address = match.components?[.street] ?? match.components?[.city] {
+                if (match.components?[.street] ?? match.components?[.city]) != nil {
                     // Construct full address from components
                     let fullAddress = constructAddress(from: match.components)
                     if !fullAddress.isEmpty {

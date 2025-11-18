@@ -109,7 +109,7 @@ struct ScreenshotListView: View {
             .onChange(of: showTodayOnly) { oldValue, newValue in
                 paginationViewModel.updateSourceScreenshots(filteredScreenshots, forceReset: true)
             }
-            .onChange(of: allScreenshots.map(\.assetIdentifier)) { _ in
+            .onChange(of: allScreenshots.map(\.assetIdentifier)) { _,_ in
                 paginationViewModel.updateSourceScreenshots(filteredScreenshots)
             }
             .alert("Photo Library Access Required", isPresented: $showPermissionAlert) {

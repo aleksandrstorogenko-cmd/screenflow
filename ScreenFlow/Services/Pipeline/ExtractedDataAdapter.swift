@@ -65,7 +65,7 @@ final class ExtractedDataAdapter {
 
             case .date:
                 // Parse ISO8601 date
-                if let rawText = entity.metadata?["rawText"] {
+                if (entity.metadata?["rawText"]) != nil {
                     let formatter = ISO8601DateFormatter()
                     if let date = formatter.date(from: entity.value) {
                         dates.append(date)
@@ -157,6 +157,7 @@ final class ExtractedDataAdapter {
             totalScore += 0.2
         }
 
-        return maxScore > 0 ? totalScore / maxScore : 0.0
+        return totalScore / maxScore
     }
 }
+
