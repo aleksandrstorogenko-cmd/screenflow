@@ -72,7 +72,7 @@ struct MinimizableTabBar: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
             .background(
-                RoundedRectangle(cornerRadius: 20)
+                RoundedRectangle(cornerRadius: 26)
                     .fill(.regularMaterial)
                     .shadow(color: .black.opacity(0.1), radius: 8, y: 4)
             )

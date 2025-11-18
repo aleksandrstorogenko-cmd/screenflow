@@ -40,7 +40,7 @@ struct EntitiesCard: View {
         }
         .padding()
         .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .cornerRadius(26)
         .padding(.horizontal)
         .frame(maxWidth: .infinity)
     }
@@ -139,9 +139,9 @@ struct URLList: View {
                 }
             }
             .background(Color(.systemBackground))
-            .cornerRadius(12)
+            .cornerRadius(26)
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: 26)
                     .stroke(Color(.systemGray4), lineWidth: 0.5)
             )
         }

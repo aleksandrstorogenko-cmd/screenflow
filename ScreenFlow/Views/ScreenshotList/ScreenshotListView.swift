@@ -27,7 +27,7 @@ struct ScreenshotListView: View {
     private let screenshotService = ScreenshotService.shared
 
     /// Pagination view model responsible for batching items
-    @StateObject private var paginationViewModel = ScreenshotPaginationViewModel(pageSize: 20)
+    @StateObject private var paginationViewModel = ScreenshotPaginationViewModel()
 
     /// Edit mode state
     @State private var editMode: EditMode = .inactive
@@ -64,7 +64,7 @@ struct ScreenshotListView: View {
                     PermissionDeniedView(onGrantAccess: requestPermissionAndSync)
                 } else {
                     // Main list view
-                    ScreenshotListContentView(
+                    MasonryScreenshotListView(
                         screenshots: paginationViewModel.visibleScreenshots,
                         allScreenshots: filteredScreenshots,
                         isLoadingMore: paginationViewModel.isLoadingPage,

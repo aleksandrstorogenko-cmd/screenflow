@@ -10,6 +10,17 @@ import UIKit
 
 
 extension View {
+
+    /// Extension for Conditional Modifiers: conditionally applies a transform to the view
+    @ViewBuilder
+    func `if`<Content: View>(_ condition: Bool, transform: (Self) -> Content) -> some View {
+        if condition {
+            transform(self)
+        } else {
+            self
+        }
+    }
+
     @ViewBuilder
     func navigationSubtitleIfAvailable(_ text: String) -> some View {
         if #available(iOS 26.0, *) {

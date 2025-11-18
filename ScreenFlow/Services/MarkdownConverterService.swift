@@ -128,7 +128,9 @@ final class MarkdownConverterService: MarkdownConverterServiceProtocol {
           * Blank line between paragraphs
           * Bulleted lists (- item) and numbered lists (1., 2., ...)
           * **bold** and *italic* only when clearly used as headings or emphasis
-        - Output ONLY Markdown, no explanation or extra commentary.
+        - Output ONLY the Markdown text directly.
+        - DO NOT wrap output in ```markdown code blocks.
+        - NO explanations, NO code fences, NO commentary.
 
         OCR_BLOCKS_JSON:
         \(jsonString)
@@ -142,7 +144,29 @@ final class MarkdownConverterService: MarkdownConverterServiceProtocol {
         let response = try await session.respond(to: prompt)
 
         print("MarkdownConverterService: Received response from model (length: \(response.content.count))")
-        return response.content
+        
+        // Clean up response - remove code block wrappers if AI added them
+        var cleanedContent = response.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // Remove markdown code block wrappers
+        if cleanedContent.hasPrefix("```markdown") {
+            cleanedContent = cleanedContent.replacingOccurrences(of: "```markdown\n", with: "", options: [.anchored])
+            cleanedContent = cleanedContent.replacingOccurrences(of: "```markdown", with: "", options: [.anchored])
+        } else if cleanedContent.hasPrefix("```") {
+            if let firstNewline = cleanedContent.firstIndex(of: "\n") {
+                cleanedContent = String(cleanedContent[cleanedContent.index(after: firstNewline)...])
+            }
+        }
+        
+        if cleanedContent.hasSuffix("```") {
+            if let lastTripleBacktick = cleanedContent.range(of: "```", options: .backwards) {
+                cleanedContent = String(cleanedContent[..<lastTripleBacktick.lowerBound])
+            }
+        }
+        
+        cleanedContent = cleanedContent.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        return cleanedContent
         #else
         // Fallback to heuristics if framework not available at runtime
         return try await convertWithHeuristics(blocks: blocks)

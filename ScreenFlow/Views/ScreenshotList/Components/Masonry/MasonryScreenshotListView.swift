@@ -9,7 +9,7 @@ import SwiftUI
 import SwiftData
 
 /// View displaying the scrollable list of screenshots
-struct ScreenshotListContentView: View {
+struct MasonryScreenshotListView: View {
     /// Screenshots to display (paginated)
     let screenshots: [Screenshot]
 

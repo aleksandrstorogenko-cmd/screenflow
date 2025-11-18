@@ -26,7 +26,7 @@ import SwiftUI
 /// } content: {
 ///     VStack(spacing: 16) {
 ///         ForEach(0..<30) { i in
-///             RoundedRectangle(cornerRadius: 16)
+///             RoundedRectangle(cornerRadius: 26)
 ///                 .fill(Color(.secondarySystemBackground))
 ///                 .frame(height: 60)
 ///                 .overlay(Text("Item #\(i + 1)"))

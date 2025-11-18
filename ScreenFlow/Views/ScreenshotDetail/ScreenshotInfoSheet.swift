@@ -189,37 +189,3 @@ struct MetadataRow: View {
         }
     }
 }
-
-/// Thumbnail view for info sheet
-struct ScreenshotThumbnailView: View {
-    let screenshot: Screenshot
-    @State private var thumbnailImage: UIImage?
-
-    var body: some View {
-        Group {
-            if let image = thumbnailImage {
-                Image(uiImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-            } else {
-                Rectangle()
-                    .fill(Color.gray.opacity(0.2))
-                    .overlay {
-                        ProgressView()
-                    }
-            }
-        }
-        .onAppear {
-            loadThumbnail()
-        }
-    }
-
-    private func loadThumbnail() {
-        PhotoLibraryService.shared.fetchThumbnail(
-            for: screenshot,
-            targetSize: CGSize(width: 400, height: 400)
-        ) { image in
-            thumbnailImage = image
-        }
-    }
-}

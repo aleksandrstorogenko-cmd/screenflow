@@ -70,7 +70,7 @@ struct BottomScrollSheet<Background: View, SheetContent: View>: View {
                         sheetContent()
                             .padding()
                             .background(.ultraThinMaterial)
-                            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                            .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
                     }
                 }
             }

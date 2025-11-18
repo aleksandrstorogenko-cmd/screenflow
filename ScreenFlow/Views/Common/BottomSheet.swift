@@ -64,7 +64,7 @@ struct BottomSheet<Content: View>: View {
         .frame(height: sheetHeight)
         .frame(maxWidth: .infinity)
         .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
         .shadow(radius: 10)
         .frame(maxHeight: .infinity, alignment: .bottom)
         .gesture(drag)

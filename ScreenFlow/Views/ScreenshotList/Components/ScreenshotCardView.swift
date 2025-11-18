@@ -55,6 +55,7 @@ struct ScreenshotCardView: View {
                 }
                 .frame(height: imageContainerHeight)
                 .clipped()
+                .cornerRadius(26)
 
                 // Checkbox overlay in edit mode
                 if isEditMode {
@@ -70,22 +71,11 @@ struct ScreenshotCardView: View {
                 }
             }
             .padding(8)
-
-            // Title overlay
-            VStack(alignment: .leading, spacing: 6) {
-                // Date
-                Text(screenshot.creationDate.screenshotDateString)
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
-            }
-            .padding(.horizontal, 12)
-            .padding(.top, 4)
-            .padding(.bottom, 12)
         }
         .background(Color(.systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .clipShape(RoundedRectangle(cornerRadius: 26))
         .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
-        .contentShape(RoundedRectangle(cornerRadius: 16))
+        .contentShape(RoundedRectangle(cornerRadius: 26))
         .if(isEditMode) { view in
             view.onTapGesture {
                 toggleSelection()
@@ -93,8 +83,6 @@ struct ScreenshotCardView: View {
         }
         .onAppear {
             loadImage()
-            // Don't auto-generate titles to prevent UI freeze
-            // Titles will be generated lazily when needed or in the background
         }
     }
 
@@ -122,34 +110,6 @@ struct ScreenshotCardView: View {
             targetSize: CGSize(width: 600, height: 600)
         ) { loadedImage in
             image = loadedImage
-        }
-    }
-
-    /// Get SF Symbol icon for screenshot kind
-    private func iconForKind(_ kind: String) -> String {
-        switch kind {
-        case "qr": return "qrcode"
-        case "document": return "doc.text"
-        case "link": return "link"
-        case "receipt": return "receipt"
-        case "businessCard": return "person.text.rectangle"
-        case "chat": return "message"
-        case "text": return "text.alignleft"
-        case "photo": return "photo"
-        default: return "doc"
-        }
-    }
-}
-
-// MARK: - View Extension for Conditional Modifiers
-extension View {
-    /// Conditionally applies a transform to the view
-    @ViewBuilder
-    func `if`<Content: View>(_ condition: Bool, transform: (Self) -> Content) -> some View {
-        if condition {
-            transform(self)
-        } else {
-            self
         }
     }
 }

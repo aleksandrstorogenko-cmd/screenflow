@@ -46,7 +46,7 @@ struct EventInfoCard: View {
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color(.systemBackground))
-            .cornerRadius(24)
+            .cornerRadius(26)
             .padding(.horizontal, 16)
             .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 2)
         }
