@@ -13,6 +13,8 @@ struct ScreenshotInfoSheet: View {
     let allScreenshots: [Screenshot]
     @Binding var currentIndex: Int
     @Binding var currentDetent: PresentationDetent
+    let isDeleting: Bool
+    let onDelete: (Screenshot) -> Void
 
     @Environment(\.modelContext) private var modelContext
     @State private var isRefreshing = false
@@ -24,23 +26,12 @@ struct ScreenshotInfoSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                ScrollView {
+                ScrollView(showsIndicators: false) {
                     VStack(spacing: 20) {
-                        // Show title at top left when sheet is not large
-                        if currentDetent != .large {
-                            HStack {
-                                Text("Info")
-                                    .font(.headline)
-                                    .padding(.horizontal)
-                                Spacer()
-                            }
-                            .padding(.top, 8)
-                            .transition(.move(edge: .leading).combined(with: .opacity))
-                        }
-
                         if let screenshot = currentScreenshot {
                             // Metadata
-                            MetadataSection(screenshot: screenshot, showTitle: currentDetent == .large)
+                            MetadataSection(screenshot: screenshot)
+                                .padding(.top, -40)
 
                             Divider()
                                 .padding(.horizontal)
@@ -79,12 +70,9 @@ struct ScreenshotInfoSheet: View {
 
                         Spacer(minLength: 20)
                     }
-                    .padding(.top)
                     .animation(.easeInOut(duration: 0.3), value: currentDetent)
                 }
             }
-            .navigationTitle(currentDetent == .large ? "Info" : "")
-            .navigationBarTitleDisplayMode(.inline)
             .animation(.easeInOut(duration: 0.3), value: currentDetent)
             .toolbar {
                 // Only show toolbar when in large detent
@@ -93,14 +81,22 @@ struct ScreenshotInfoSheet: View {
                         Button {
                             refreshScreenshotData()
                         } label: {
-                            if isRefreshing {
-                                ProgressView()
-                                    .progressViewStyle(.circular)
-                            } else {
-                                Label("Refresh", systemImage: "arrow.clockwise")
-                            }
+                            Label("Refresh", systemImage: "arrow.clockwise")
                         }
                         .disabled(isRefreshing || currentScreenshot == nil)
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                    }
+                } else {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button(role: .destructive) {
+                            if let screenshot = currentScreenshot {
+                                onDelete(screenshot)
+                            }
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                        .tint(Color(.systemRed))
+                        .disabled(isRefreshing || isDeleting || currentScreenshot == nil)
                         .transition(.move(edge: .trailing).combined(with: .opacity))
                     }
                 }
@@ -145,18 +141,15 @@ struct ScreenshotInfoSheet: View {
 /// Metadata section showing basic screenshot info
 struct MetadataSection: View {
     let screenshot: Screenshot
-    var showTitle: Bool = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-//            if showTitle {
-//                Text("Info")
-//                    .font(.headline)
-//                    .padding(.horizontal)
-//                    .transition(.opacity)
-//            }
-
             VStack(spacing: 8) {
+                HStack {
+                    Text("Details").font(.title).bold()
+                    Spacer()
+                }
+
                 MetadataRow(label: "File Name", value: screenshot.fileName)
                 MetadataRow(label: "Date Created", value: formatDate(screenshot.creationDate))
                 MetadataRow(label: "Size", value: "\(screenshot.width) × \(screenshot.height)")

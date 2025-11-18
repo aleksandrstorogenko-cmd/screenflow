@@ -18,7 +18,10 @@ struct ScreenshotDetailView: View {
     let screenshot: Screenshot
 
     /// All screenshots for swipe navigation
-    let allScreenshots: [Screenshot]
+    @State private var allScreenshots: [Screenshot]
+
+    /// Photo library service
+    private let photoLibraryService = PhotoLibraryService.shared
 
     /// Environment dismiss action
     @Environment(\.dismiss) private var dismiss
@@ -54,11 +57,14 @@ struct ScreenshotDetailView: View {
     /// Track current sheet detent
     @State private var sheetDetent: PresentationDetent = .height(155)
 
+    /// Deletion state
+    @State private var isDeletingScreenshot = false
+
     // MARK: - Initialization
 
     init(screenshot: Screenshot, allScreenshots: [Screenshot]) {
         self.screenshot = screenshot
-        self.allScreenshots = allScreenshots
+        _allScreenshots = State(initialValue: allScreenshots)
 
         // Find the initial index
         if let index = allScreenshots.firstIndex(where: { $0.id == screenshot.id }) {
@@ -76,7 +82,10 @@ struct ScreenshotDetailView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: 0) {
                         ForEach(Array(allScreenshots.enumerated()), id: \.element.id) { index, screenshot in
-                                ScreenshotImageView(screenshot: screenshot)
+                                ScreenshotImageView(
+                                    screenshot: screenshot,
+                                    onAssetUnavailable: { handleMissingScreenshot(screenshot) }
+                                )
                                     .frame(width: geometry.size.width, height: geometry.size.height)
                                     .background(Color.black)
                                     .id(index)
@@ -134,7 +143,9 @@ struct ScreenshotDetailView: View {
             ScreenshotInfoSheet(
                 allScreenshots: allScreenshots,
                 currentIndex: $currentIndex,
-                currentDetent: $sheetDetent
+                currentDetent: $sheetDetent,
+                isDeleting: isDeletingScreenshot,
+                onDelete: deleteScreenshot
             )
             .presentationDetents([.height(155), .large], selection: $sheetDetent)
             .presentationDragIndicator(.visible)
@@ -168,6 +179,61 @@ struct ScreenshotDetailView: View {
         // TODO: Implement share functionality
         let currentScreenshot = allScreenshots[safe: currentIndex]
         print("Share button tapped for screenshot: \(currentScreenshot?.fileName ?? "unknown")")
+    }
+
+    // MARK: - Deletion
+
+    /// Delete the provided screenshot and advance to the next available one
+    private func deleteScreenshot(_ screenshot: Screenshot) {
+        guard !isDeletingScreenshot else { return }
+        guard allScreenshots.contains(where: { $0.id == screenshot.id }) else { return }
+
+        isDeletingScreenshot = true
+
+        Task {
+            do {
+                try await photoLibraryService.deleteFromLibrary(
+                    screenshot,
+                    modelContext: modelContext
+                )
+
+                await MainActor.run {
+                    removeScreenshotFromList(screenshot)
+                    isDeletingScreenshot = false
+                }
+            } catch {
+                await MainActor.run {
+                    isDeletingScreenshot = false
+                    showAlert(
+                        title: "Unable to Delete",
+                        message: (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                    )
+                }
+            }
+        }
+    }
+
+    /// Remove a screenshot that is no longer available (e.g., deleted externally)
+    @MainActor
+    private func handleMissingScreenshot(_ screenshot: Screenshot) {
+        removeScreenshotFromList(screenshot)
+    }
+
+    /// Remove screenshot from in-memory list and update navigation state
+    @MainActor
+    private func removeScreenshotFromList(_ screenshot: Screenshot) {
+        guard let removedIndex = allScreenshots.firstIndex(where: { $0.id == screenshot.id }) else { return }
+
+        allScreenshots.remove(at: removedIndex)
+
+        if allScreenshots.isEmpty {
+            showInfoSheet = false
+            dismiss()
+        } else {
+            let newIndex = min(removedIndex, allScreenshots.count - 1)
+            currentIndex = newIndex
+            scrollPosition = newIndex
+        }
     }
 
     // MARK: - Action Execution Methods

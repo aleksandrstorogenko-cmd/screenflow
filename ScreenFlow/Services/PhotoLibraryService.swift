@@ -10,6 +10,20 @@ import SwiftData
 import UIKit
 import Combine
 
+enum PhotoLibraryServiceError: LocalizedError {
+    case assetNotFound
+    case deletionFailed
+
+    var errorDescription: String? {
+        switch self {
+        case .assetNotFound:
+            return "Couldn't locate this screenshot in your photo library."
+        case .deletionFailed:
+            return "Failed to delete the screenshot. Please try again."
+        }
+    }
+}
+
 /// Service responsible for fetching screenshots from photo library and syncing with SwiftData
 @MainActor
 final class PhotoLibraryService: ObservableObject {
@@ -432,6 +446,33 @@ final class PhotoLibraryService: ObservableObject {
         for screenshot in screenshots {
             modelContext.delete(screenshot)
         }
+        try? modelContext.save()
+    }
+
+    /// Delete screenshot from Photos library and from the app database
+    /// - Parameters:
+    ///   - screenshot: Screenshot to delete
+    ///   - modelContext: SwiftData model context
+    func deleteFromLibrary(_ screenshot: Screenshot, modelContext: ModelContext) async throws {
+        guard let asset = getAsset(for: screenshot.assetIdentifier) else {
+            throw PhotoLibraryServiceError.assetNotFound
+        }
+
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            PHPhotoLibrary.shared().performChanges({
+                PHAssetChangeRequest.deleteAssets([asset] as NSArray)
+            }, completionHandler: { success, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else if success {
+                    continuation.resume(returning: ())
+                } else {
+                    continuation.resume(throwing: PhotoLibraryServiceError.deletionFailed)
+                }
+            })
+        }
+
+        modelContext.delete(screenshot)
         try? modelContext.save()
     }
 }

@@ -10,6 +10,7 @@ import SwiftUI
 /// View for displaying a single screenshot image
 struct ScreenshotImageView: View {
     let screenshot: Screenshot
+    var onAssetUnavailable: (() -> Void)? = nil
 
     /// Photo library service
     private let photoLibraryService = PhotoLibraryService.shared
@@ -54,6 +55,10 @@ struct ScreenshotImageView: View {
         photoLibraryService.fetchFullImage(for: screenshot) { image in
             fullImage = image
             isLoading = false
+
+            if image == nil {
+                onAssetUnavailable?()
+            }
         }
     }
 }
