@@ -22,87 +22,35 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                // Scroll offset tracker at the top
-                Color.clear
-                    .frame(height: 0)
-                    .readScrollOffset(coordinateSpace: "settingsScroll")
-
-                VStack(spacing: 20) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Model")
-                            .font(.headline)
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal)
-
-                        VStack(spacing: 0) {
-                            ForEach(Array(ProcessingType.allCases.enumerated()), id: \.element.id) { index, type in
-                                Button {
-                                    if type.isAvailable {
-                                        selectedProcessingType = type.rawValue
-                                    }
-                                } label: {
-                                    HStack {
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text(type.displayName)
-                                                .font(.body)
-                                                .foregroundStyle(.primary)
-                                            Text(type.description)
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
-                                        }
-
-                                        Spacer()
-
-                                        if !type.isAvailable {
-                                            HStack(spacing: 8) {
-                                                Text("Not Supported")
-                                                    .font(.caption)
-                                                    .foregroundStyle(.secondary)
-
-                                                Button {
-                                                    showCompatibilityAlert = true
-                                                } label: {
-                                                    Image(systemName: "info.circle")
-                                                        .foregroundStyle(.blue)
-                                                        .font(.body)
-                                                }
-                                                .buttonStyle(.plain)
-                                            }
-                                        } else if selectedProcessingType == type.rawValue {
-                                            Image(systemName: "checkmark")
-                                                .foregroundStyle(.blue)
-                                                .font(.body.weight(.semibold))
-                                        }
-                                    }
-                                    .padding()
-                                    .background(Color(.secondarySystemGroupedBackground))
-                                }
-                                .disabled(!type.isAvailable)
-                                .opacity(type.isAvailable ? 1 : 0.5)
-
-                                if index < ProcessingType.allCases.count - 1 {
-                                    Divider()
-                                        .padding(.leading)
-                                }
+            List {
+                Section {
+                    ForEach(ProcessingType.allCases) { type in
+                        Button {
+                            if type.isAvailable {
+                                selectedProcessingType = type.rawValue
                             }
+                        } label: {
+                            ModelSelectionRow(
+                                type: type,
+                                isSelected: selectedProcessingType == type.rawValue,
+                                onInfoTap: {
+                                    showCompatibilityAlert = true
+                                }
+                            )
                         }
-                        .background(Color(.secondarySystemGroupedBackground))
-                        .cornerRadius(10)
-                        .padding(.horizontal)
-
-                        if !processingType.isAvailable {
-                            Text("Selected processing type is not available on this device")
-                                .font(.caption)
-                                .foregroundStyle(.red)
-                                .padding(.horizontal)
-                        }
+                        .disabled(!type.isAvailable)
                     }
-                    .padding(.top)
+                } header: {
+                    Text("Model")
+                        .textCase(.uppercase)
+                } footer: {
+                    if !processingType.isAvailable {
+                        Text("Selected processing type is not available on this device")
+                            .foregroundStyle(.red)
+                    }
                 }
             }
-            .coordinateSpace(name: "settingsScroll")
-            .background(Color(.systemGroupedBackground))
+            .listStyle(.insetGrouped)
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.large)
             .alert("Apple Intelligence Not Available", isPresented: $showCompatibilityAlert) {
@@ -111,6 +59,56 @@ struct SettingsView: View {
                 Text("Apple Intelligence processing requires iOS 26 or later and is supported on iPhone 15 Pro, iPhone 15 Pro Max, and newer models with A17 Pro chip or later.")
             }
         }
+    }
+}
+
+/// Individual row for model selection that matches Apple's settings design
+private struct ModelSelectionRow: View {
+    let type: ProcessingType
+    let isSelected: Bool
+    let onInfoTap: () -> Void
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            // Main content
+            VStack(alignment: .leading, spacing: 2) {
+                Text(type.displayName)
+                    .font(.body)
+                    .foregroundStyle(type.isAvailable ? .primary : .secondary)
+
+                Text(type.description)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 12)
+
+            // Trailing content with fixed width to prevent jumping
+            HStack(spacing: 8) {
+                if !type.isAvailable {
+                    Button {
+                        onInfoTap()
+                    } label: {
+                        Image(systemName: "info.circle")
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                // Fixed width container for checkmark to prevent layout shifts
+                ZStack {
+                    if isSelected {
+                        Image(systemName: "checkmark")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(.tint)
+                    }
+                }
+                .frame(width: 20, alignment: .trailing)
+            }
+        }
+        .contentShape(Rectangle())
     }
 }
 
