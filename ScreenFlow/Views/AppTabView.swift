@@ -1,14 +1,14 @@
 //
-//  MainTabView.swift
+//  AppTabView.swift
 //  ScreenFlow
 //
-//  Main tab navigation view with Inbox and Settings tabs
+//  App tab navigation view with Inbox and Settings tabs
 //
 
 import SwiftUI
 
-/// Main tab view with bottom navigation
-struct MainTabView: View {
+/// App tab view with bottom navigation
+struct AppTabView: View {
     @State private var selectedTab = 0
 
     var body: some View {
@@ -54,5 +54,5 @@ extension View {
 }
 
 #Preview {
-    MainTabView()
+    AppTabView()
 }

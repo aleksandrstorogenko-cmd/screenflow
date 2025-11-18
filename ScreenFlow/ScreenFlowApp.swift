@@ -24,7 +24,7 @@ struct ScreenFlowApp: App {
 
     var body: some Scene {
         WindowGroup {
-            MainTabView()
+            AppTabView()
         }
         .modelContainer(modelContainer)
     }
