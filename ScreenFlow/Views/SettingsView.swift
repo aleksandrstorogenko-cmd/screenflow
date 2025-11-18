@@ -12,6 +12,9 @@ struct SettingsView: View {
     /// Selected processing type stored in UserDefaults
     @AppStorage("processingType") private var selectedProcessingType: String = ProcessingType.offline.rawValue
 
+    /// State for showing compatibility alert
+    @State private var showCompatibilityAlert = false
+
     /// Computed property to convert string to ProcessingType
     private var processingType: ProcessingType {
         ProcessingType(rawValue: selectedProcessingType) ?? .offline
@@ -27,7 +30,7 @@ struct SettingsView: View {
 
                 VStack(spacing: 20) {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Screenshot Processing")
+                        Text("Model")
                             .font(.headline)
                             .foregroundStyle(.secondary)
                             .padding(.horizontal)
@@ -51,7 +54,22 @@ struct SettingsView: View {
 
                                         Spacer()
 
-                                        if selectedProcessingType == type.rawValue {
+                                        if !type.isAvailable {
+                                            HStack(spacing: 8) {
+                                                Text("Not Supported")
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+
+                                                Button {
+                                                    showCompatibilityAlert = true
+                                                } label: {
+                                                    Image(systemName: "info.circle")
+                                                        .foregroundStyle(.blue)
+                                                        .font(.body)
+                                                }
+                                                .buttonStyle(.plain)
+                                            }
+                                        } else if selectedProcessingType == type.rawValue {
                                             Image(systemName: "checkmark")
                                                 .foregroundStyle(.blue)
                                                 .font(.body.weight(.semibold))
@@ -87,6 +105,11 @@ struct SettingsView: View {
             .background(Color(.systemGroupedBackground))
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.large)
+            .alert("Apple Intelligence Not Available", isPresented: $showCompatibilityAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("Apple Intelligence processing requires iOS 26 or later and is supported on iPhone 15 Pro, iPhone 15 Pro Max, and newer models with A17 Pro chip or later.")
+            }
         }
     }
 }

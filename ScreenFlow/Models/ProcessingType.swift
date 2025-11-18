@@ -24,11 +24,11 @@ enum ProcessingType: String, CaseIterable, Identifiable {
     var displayName: String {
         switch self {
         case .offline:
-            return "OCR + Vision"
+            return "Standard"
         case .appleIntelligence:
-            return "Apple Intelligence"
+            return "Smart"
         case .onlineAI:
-            return "Online AI"
+            return "Smart+ AI"
         }
     }
 
@@ -36,11 +36,11 @@ enum ProcessingType: String, CaseIterable, Identifiable {
     var description: String {
         switch self {
         case .offline:
-            return "Simple and fast offline processing"
+            return "Fast offline processing with OCR and object detection"
         case .appleIntelligence:
-            return "Effective processing with Apple Intelligence (iOS 26+)"
+            return "Advanced on-device processing powered by Apple Intelligence"
         case .onlineAI:
-            return "Online processing with AI model"
+            return "Premium cloud-based AI processing for best results"
         }
     }
 
