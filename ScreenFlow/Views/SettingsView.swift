@@ -27,7 +27,7 @@ struct SettingsView: View {
 
                 VStack(spacing: 20) {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Screenshot Processing")
+                        Text("Model")
                             .font(.headline)
                             .foregroundStyle(.secondary)
                             .padding(.horizontal)
