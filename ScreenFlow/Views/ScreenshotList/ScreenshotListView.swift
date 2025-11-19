@@ -52,6 +52,12 @@ struct ScreenshotListView: View {
 
     /// Track whether pagination has been configured at least once
     @State private var hasInitializedPagination = false
+    
+    /// Deletion error state
+    @State private var deletionError: Error?
+    
+    /// Show deletion error alert
+    @State private var showDeletionErrorAlert = false
 
     var body: some View {
         NavigationStack {
@@ -118,6 +124,13 @@ struct ScreenshotListView: View {
             } message: {
                 Text("Please grant access to your photo library in Settings to use this app.")
             }
+            .alert("Deletion Failed", isPresented: $showDeletionErrorAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                if let error = deletionError {
+                    Text(error.localizedDescription)
+                }
+            }
         }
     }
 
@@ -161,11 +174,26 @@ struct ScreenshotListView: View {
 
     /// Delete selected screenshots
     private func deleteSelectedScreenshots() {
-        withAnimation {
+        Task {
             let screenshotsToDelete = allScreenshots.filter { selectedScreenshots.contains($0.id) }
-            screenshotService.deleteScreenshots(screenshotsToDelete, modelContext: modelContext)
-            selectedScreenshots.removeAll()
-            editMode = .inactive
+            
+            guard !screenshotsToDelete.isEmpty else { return }
+            
+            do {
+                try await screenshotService.batchDeleteScreenshots(screenshotsToDelete, modelContext: modelContext)
+                
+                await MainActor.run {
+                    withAnimation {
+                        selectedScreenshots.removeAll()
+                        editMode = .inactive
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    deletionError = error
+                    showDeletionErrorAlert = true
+                }
+            }
         }
     }
 

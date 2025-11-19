@@ -87,12 +87,13 @@ final class ScreenshotService {
     func deleteScreenshot(_ screenshot: Screenshot, modelContext: ModelContext) {
         photoLibraryService.deleteFromApp(screenshots: [screenshot], modelContext: modelContext)
     }
-
-    /// Delete multiple screenshots from the app
+    
+    /// Batch delete multiple screenshots from the device (Photos library)
     /// - Parameters:
     ///   - screenshots: Array of screenshots to delete
     ///   - modelContext: SwiftData model context
-    func deleteScreenshots(_ screenshots: [Screenshot], modelContext: ModelContext) {
-        photoLibraryService.deleteFromApp(screenshots: screenshots, modelContext: modelContext)
+    /// - Throws: Error if deletion fails
+    func batchDeleteScreenshots(_ screenshots: [Screenshot], modelContext: ModelContext) async throws {
+        try await photoLibraryService.batchDeleteFromLibrary(screenshots, modelContext: modelContext)
     }
 }

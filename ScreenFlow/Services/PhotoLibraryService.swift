@@ -475,4 +475,33 @@ final class PhotoLibraryService: ObservableObject {
         modelContext.delete(screenshot)
         try? modelContext.save()
     }
+    
+    /// Batch delete multiple screenshots from Photos library and from the app database
+    /// - Parameters:
+    ///   - screenshots: Array of screenshots to delete
+    ///   - modelContext: SwiftData model context
+    func batchDeleteFromLibrary(_ screenshots: [Screenshot], modelContext: ModelContext) async throws {
+        let assets = screenshots.compactMap { getAsset(for: $0.assetIdentifier) }
+        
+        guard !assets.isEmpty else { return }
+        
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            PHPhotoLibrary.shared().performChanges({
+                PHAssetChangeRequest.deleteAssets(assets as NSArray)
+            }, completionHandler: { success, error in
+                if let error = error {
+                    continuation.resume(throwing: error)
+                } else if success {
+                    continuation.resume(returning: ())
+                } else {
+                    continuation.resume(throwing: PhotoLibraryServiceError.deletionFailed)
+                }
+            })
+        }
+        
+        for screenshot in screenshots {
+            modelContext.delete(screenshot)
+        }
+        try? modelContext.save()
+    }
 }
