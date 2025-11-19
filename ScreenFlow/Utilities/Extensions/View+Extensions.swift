@@ -34,6 +34,14 @@ extension View {
     func disableSwipeBack() -> some View {
         self.background(SwipeBackDisabler())
     }
+    
+    /// Apply animated scale and fade transition for item removal/insertion
+    func animatedItemTransition() -> some View {
+        self.transition(.asymmetric(
+            insertion: .scale.combined(with: .opacity),
+            removal: .scale.combined(with: .opacity)
+        ))
+    }
 }
 
 /// UIViewControllerRepresentable to disable swipe back gesture

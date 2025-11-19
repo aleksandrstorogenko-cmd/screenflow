@@ -183,9 +183,8 @@ struct ScreenshotListView: View {
                 try await screenshotService.batchDeleteScreenshots(screenshotsToDelete, modelContext: modelContext)
                 
                 await MainActor.run {
-                    withAnimation {
+                    withAnimation(.easeInOut(duration: 0.3)) {
                         selectedScreenshots.removeAll()
-                        editMode = .inactive
                     }
                 }
             } catch {

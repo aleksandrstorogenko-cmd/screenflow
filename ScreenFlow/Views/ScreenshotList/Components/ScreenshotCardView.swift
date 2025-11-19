@@ -55,7 +55,7 @@ struct ScreenshotCardView: View {
                 }
                 .frame(height: imageContainerHeight)
                 .clipped()
-                .cornerRadius(26)
+                .cornerRadius(22)
 
                 // Checkbox overlay in edit mode
                 if isEditMode {

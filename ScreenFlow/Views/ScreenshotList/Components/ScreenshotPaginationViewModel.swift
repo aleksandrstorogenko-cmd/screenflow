@@ -41,8 +41,19 @@ final class ScreenshotPaginationViewModel: ObservableObject {
         sourceScreenshots = newScreenshots
         sourceIdentifiers = newIdentifiers
 
-        if forceReset || identifiersChanged || visibleScreenshots.isEmpty {
+        if forceReset || visibleScreenshots.isEmpty {
             restartPagination()
+            return
+        }
+
+        if identifiersChanged {
+            // Handle deletions intelligently: maintain scroll position
+            // Keep the same number of items visible, but update to the new data
+            let currentlyVisibleCount = visibleScreenshots.count
+            let newVisibleCount = min(currentlyVisibleCount, newScreenshots.count)
+            
+            visibleScreenshots = Array(newScreenshots.prefix(newVisibleCount))
+            nextIndex = newVisibleCount
             return
         }
 

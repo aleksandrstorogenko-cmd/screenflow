@@ -48,12 +48,16 @@ struct MasonryScreenshotListView: View {
                 onLoadMore: onLoadMore
             ) { screenshot, isLastInColumn in
                 if isEditMode {
-                    // In edit mode, just show the card without navigation
-                    ScreenshotCardView(screenshot: screenshot, selectedScreenshots: $selectedScreenshots)
+                    ScreenshotCardView(
+                        screenshot: screenshot, 
+                        selectedScreenshots: $selectedScreenshots
+                    )
                 } else {
-                    // Normal mode with navigation
                     NavigationLink(value: screenshot) {
-                        ScreenshotCardView(screenshot: screenshot, selectedScreenshots: $selectedScreenshots)
+                        ScreenshotCardView(
+                            screenshot: screenshot, 
+                            selectedScreenshots: $selectedScreenshots
+                        )
                     }
                     .buttonStyle(PlainButtonStyle())
                 }
