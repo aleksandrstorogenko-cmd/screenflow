@@ -35,13 +35,25 @@
 
 ### Design Patterns
 
-1. **MVVM Architecture:** Views use SwiftData models with observable patterns
+1. **MVVM Architecture:** Views use SwiftData models with observable patterns (minimal ViewModels currently)
 2. **Service Layer:** Singleton services for cross-cutting concerns
-3. **Dependency Injection:** Services depend on other services via shared instances
-4. **Performance Optimization:**
-   - `ExtractionQueue` for limiting concurrent ML operations
-   - `ExtractionCache` for avoiding reprocessing
+3. **Inline Action Handling:** Actions embedded directly in UI components (no centralized action sheet)
+4. **Pipeline Architecture:** Modern extraction pipeline with protocol-based coordinators
+5. **Performance Optimization:**
+   - `ExtractionQueue` (actor-based) for limiting concurrent ML operations
+   - `ExtractionCache` (actor-based) for avoiding reprocessing
    - `PHCachingImageManager` for efficient image loading
+
+### Current Action Handling Pattern
+
+**NO centralized action sheet** - the codebase uses **inline, contextual actions**:
+- **Pattern 1:** Direct inline actions in UI cards (LinksSection, EntitiesCard, etc.)
+- **Pattern 2:** SmartActionFactory creates actions → ActionExecutor executes them
+- **Pattern 3:** ActionButton component wraps SmartAction instances
+
+**Deprecated pattern (DO NOT USE):**
+- UniversalActionSheet - orphaned file, not used in current codebase
+- Action Helper files - orphaned pattern, replaced by inline handling
 
 ---
 
@@ -69,20 +81,21 @@ ScreenFlow/
 │   │   └── ScreenshotInfoSheet.swift
 │   ├── Components/               # Reusable UI components
 │   │   ├── Actions/
-│   │   │   ├── ActionButton.swift
-│   │   │   └── UniversalActionSheet.swift
-│   │   └── ExtractedData/
-│   │       ├── ExtractedDataSection.swift
-│   │       ├── TextPreviewCard.swift
-│   │       ├── EntitiesCard.swift
-│   │       ├── EventInfoCard.swift
-│   │       ├── ContactInfoCard.swift
-│   │       ├── DetectedObjectsCard.swift
-│   │       └── LinksSection.swift
+│   │   │   └── ActionButton.swift  # Reusable action button component
+│   │   ├── ExtractedData/          # Cards for displaying extracted information
+│   │   │   ├── ExtractedDataSection.swift
+│   │   │   ├── TextPreviewCard.swift
+│   │   │   ├── EntitiesCard.swift
+│   │   │   ├── EventInfoCard.swift
+│   │   │   ├── ContactInfoCard.swift
+│   │   │   ├── DetectedObjectsCard.swift
+│   │   │   └── LinksSection.swift  # Inline URL actions
+│   │   └── MinimizableTabBar.swift # Custom tab bar
+│   ├── Settings/                 # Settings screens
+│   │   ├── SettingsView.swift
+│   │   └── Sections/
+│   │       └── AIProcessingSettingsSection.swift
 │   └── Common/                   # Common UI utilities
-│       ├── BottomSheet.swift
-│       ├── BottomScrollSheet.swift
-│       ├── CollapsingHeaderScrollView.swift
 │       └── PermissionDeniedView.swift
 ├── Services/                      # Business logic and API services
 │   ├── PhotoLibraryService.swift # Photo library sync and management
@@ -472,6 +485,60 @@ Modifications should maintain this order and handle errors gracefully.
 - Profile image loading and caching
 - Monitor SwiftData query performance
 - Check extraction queue efficiency
+
+---
+
+## Code Health and Technical Debt
+
+### Orphaned Files (Exist on Disk but NOT USED - Safe to Delete)
+
+**Total Dead Code: ~1,707 lines (16.8% of codebase)**
+
+These files exist in the filesystem and are auto-included by Xcode's PBXFileSystemSynchronizedRootGroup, but are **NOT referenced or used anywhere** in the active codebase:
+
+#### Orphaned UI Files (~1,257 lines)
+1. **`Views/Components/Actions/UniversalActionSheet.swift`** (607 lines)
+   - Old centralized action sheet - replaced by inline action handling
+2. **`Services/Actions/UniversalActionService.swift`** (143 lines)
+   - Old action enumeration service - replaced by SmartActionFactory
+3. **`Views/ScreenshotDetail/Actions/*ActionHelper.swift`** (8 files, ~507 lines total):
+   - CalendarActionHelper.swift
+   - ContactActionHelper.swift
+   - MapActionHelper.swift
+   - URLActionHelper.swift
+   - BookmarkActionHelper.swift
+   - TextActionHelper.swift
+   - PhotoActionHelper.swift
+   - CommunicationActionHelper.swift
+   - All replaced by direct inline action handling in UI components
+
+#### Deprecated Services (~450 lines)
+These have `@available` deprecation warnings but haven't been removed:
+
+1. **`Services/TextFormatterService.swift`** (280 lines)
+   - Replaced by: MarkdownConverterService + ScreenshotProcessingCoordinator
+2. **`Services/EntityExtraction/EntityExtractionService.swift`** (170 lines)
+   - Replaced by: EntityExtractionPipelineService
+
+### Cleanup Recommendation
+
+**Quick Win:** Delete all 12 orphaned/deprecated files to reduce codebase by 1,707 lines instantly.
+
+```bash
+# Orphaned UI files
+rm ScreenFlow/Views/Components/Actions/UniversalActionSheet.swift
+rm ScreenFlow/Services/Actions/UniversalActionService.swift
+rm ScreenFlow/Views/ScreenshotDetail/Actions/*ActionHelper.swift
+
+# Deprecated services
+rm ScreenFlow/Services/TextFormatterService.swift
+rm ScreenFlow/Services/EntityExtraction/EntityExtractionService.swift
+```
+
+Verification: Search codebase for references before deletion:
+```bash
+grep -r "UniversalActionSheet\|UniversalActionService\|ActionHelper\|TextFormatterService" ScreenFlow --include="*.swift"
+```
 
 ---
 
