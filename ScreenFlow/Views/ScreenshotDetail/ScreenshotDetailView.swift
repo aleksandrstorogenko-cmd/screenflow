@@ -34,7 +34,7 @@ struct ScreenshotDetailView: View {
     @State private var scrollPosition: Int?
 
     /// Show info sheet
-    @State private var showInfoSheet = false
+    @State private var showInfoSheet = true
 
     /// Alert state
     @State private var showingAlert = false
@@ -85,9 +85,6 @@ struct ScreenshotDetailView: View {
                 .onAppear {
                     scrollPosition = currentIndex
                     proxy.scrollTo(currentIndex, anchor: .leading)
-
-                    // Show info sheet immediately and keep it visible
-                    showInfoSheet = true
                 }
                 .onChange(of: scrollPosition) { oldValue, newValue in
                     if let newValue = newValue, newValue != currentIndex {
@@ -104,6 +101,14 @@ struct ScreenshotDetailView: View {
             // Dismiss the info sheet when navigating away
             showInfoSheet = false
         }
+        .overlay(alignment: .bottom) {
+            if !showInfoSheet {
+                infoButton
+                    .padding(.bottom, 40)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        .animation(.easeInOut(duration: 0.3), value: showInfoSheet)
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {
                 Button(action: {
@@ -136,7 +141,7 @@ struct ScreenshotDetailView: View {
             )
             .presentationDetents([.height(155), .large], selection: $sheetDetent)
             .presentationDragIndicator(.visible)
-            .interactiveDismissDisabled(true)
+            .interactiveDismissDisabled(false)
             .presentationBackgroundInteraction(.enabled)
         }
         .alert(alertTitle, isPresented: $showingAlert) {
@@ -146,6 +151,32 @@ struct ScreenshotDetailView: View {
         }
     }
 
+    // MARK: - Info Button
+    
+    /// Floating info button shown when sheet is closed
+    private var infoButton: some View {
+        Button(action: {
+            withAnimation(.easeInOut(duration: 0.3)) {
+                showInfoSheet = true
+            }
+        }) {
+            Image(systemName: "info.circle.fill")
+                .font(.system(size: 28))
+                .foregroundStyle(.white)
+                .padding(16)
+                .background {
+                    if #available(iOS 26.0, *) {
+                        Circle()
+                            .glassEffect()
+                    } else {
+                        Circle()
+                            .fill(.ultraThinMaterial)
+                            .opacity(0.8)
+                    }
+                }
+        }
+    }
+    
     // MARK: - Share Methods
 
     /// Share screenshot (placeholder - action to be added later)

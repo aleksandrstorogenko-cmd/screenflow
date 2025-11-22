@@ -53,7 +53,12 @@ struct MasonryScreenshotListView: View {
                         selectedScreenshots: $selectedScreenshots
                     )
                 } else {
-                    NavigationLink(value: screenshot) {
+                    NavigationLink {
+                        ScreenshotDetailView(
+                            screenshot: screenshot,
+                            allScreenshots: allScreenshots
+                        )
+                    } label: {
                         ScreenshotCardView(
                             screenshot: screenshot, 
                             selectedScreenshots: $selectedScreenshots
@@ -63,12 +68,6 @@ struct MasonryScreenshotListView: View {
                 }
             }
             .background(Color(.systemGroupedBackground))
-        }
-        .navigationDestination(for: Screenshot.self) { screenshot in
-            ScreenshotDetailView(
-                screenshot: screenshot,
-                allScreenshots: allScreenshots
-            )
         }
     }
 }

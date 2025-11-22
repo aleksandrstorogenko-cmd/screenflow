@@ -45,7 +45,7 @@ struct ScreenshotListView: View {
     @State private var showPermissionAlert = false
 
     /// Filter option: today or all
-    @State private var showTodayOnly = true
+    @State private var showTodayOnly = false
 
     /// Background title generation task
     @State private var titleGenerationTask: Task<Void, Never>?
