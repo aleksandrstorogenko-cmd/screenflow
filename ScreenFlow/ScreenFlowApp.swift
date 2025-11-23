@@ -25,9 +25,9 @@ struct ScreenFlowApp: App {
     var body: some Scene {
         WindowGroup {
             if #available(iOS 26, *) {
-                ModernAppTabView()
+                IOS26TabView()
             } else {
-                LegacyAppTabView()
+                IOS18TabView()
             }
         }
         .modelContainer(modelContainer)

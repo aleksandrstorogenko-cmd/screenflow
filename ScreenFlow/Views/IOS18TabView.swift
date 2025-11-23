@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct LegacyAppTabView: View {
+struct IOS18TabView: View {
     @State private var selectedTab = 0
     @State private var isTabBarMinimized = false
     @State private var lastScrollOffset: CGFloat = 0
@@ -53,7 +53,8 @@ struct LegacyAppTabView: View {
 }
 
 private struct TabContentView: View {
-    let selectedTab: Int
+    @State var selectedTab: Int
+    @State var isHidden: Bool = false
 
     var body: some View {
         ZStack {

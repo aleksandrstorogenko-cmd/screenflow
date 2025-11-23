@@ -13,6 +13,11 @@ struct ExtractedDataSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            // Links Section (if available)
+            if hasLinksData {
+                LinksSection(data: data)
+            }
+
             // Event info (if available)
             if hasEventData {
                 EventInfoCard(data: data)
@@ -50,6 +55,10 @@ struct ExtractedDataSection: View {
     }
 
     // MARK: - Computed Properties
+
+    private var hasLinksData: Bool {
+        !data.urls.isEmpty
+    }
 
     private var hasEventData: Bool {
         data.eventName != nil || data.eventDate != nil || data.eventLocation != nil

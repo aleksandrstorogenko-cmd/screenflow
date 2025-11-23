@@ -16,10 +16,6 @@ struct ScreenshotListView: View {
     /// Scene phase to track app lifecycle
     @Environment(\.scenePhase) private var scenePhase
 
-    /// Fetch all screenshots from SwiftData, sorted by creation date
-    @Query(sort: \Screenshot.creationDate, order: .reverse)
-    private var allScreenshots: [Screenshot]
-
     /// Photo library service
     private let photoLibraryService = PhotoLibraryService.shared
 
@@ -50,9 +46,6 @@ struct ScreenshotListView: View {
     /// Background title generation task
     @State private var titleGenerationTask: Task<Void, Never>?
 
-    /// Track whether pagination has been configured at least once
-    @State private var hasInitializedPagination = false
-    
     /// Deletion error state
     @State private var deletionError: Error?
     
@@ -69,12 +62,10 @@ struct ScreenshotListView: View {
                     // Permission denied view
                     PermissionDeniedView(onGrantAccess: requestPermissionAndSync)
                 } else {
-                    // Main list view
-                    MasonryScreenshotListView(
-                        screenshots: paginationViewModel.visibleScreenshots,
-                        allScreenshots: filteredScreenshots,
-                        isLoadingMore: paginationViewModel.isLoadingPage,
-                        canLoadMore: paginationViewModel.canLoadMore,
+                    // Main list view with optimized filtering
+                    FilteredScreenshotList(
+                        showTodayOnly: showTodayOnly,
+                        paginationViewModel: paginationViewModel,
                         selectedScreenshots: $selectedScreenshots,
                         onDelete: deleteScreenshot,
                         onLoadMore: loadMoreItems
@@ -82,7 +73,7 @@ struct ScreenshotListView: View {
                 }
             }
             .navigationTitle("Inbox")
-            .navigationSubtitleIfAvailable("\(filteredScreenshots.count) screenshot(s)")
+            .navigationSubtitleIfAvailable("\(paginationViewModel.totalCount) screenshot(s)")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ScreenshotListToolbar(
@@ -96,11 +87,6 @@ struct ScreenshotListView: View {
             .task {
                 await requestPermissionAndSync()
             }
-            .onAppear {
-                guard !hasInitializedPagination else { return }
-                paginationViewModel.updateSourceScreenshots(filteredScreenshots, forceReset: true)
-                hasInitializedPagination = true
-            }
             .refreshable {
                 await syncScreenshots()
             }
@@ -111,12 +97,6 @@ struct ScreenshotListView: View {
                         await syncScreenshots()
                     }
                 }
-            }
-            .onChange(of: showTodayOnly) { oldValue, newValue in
-                paginationViewModel.updateSourceScreenshots(filteredScreenshots, forceReset: true)
-            }
-            .onChange(of: allScreenshots.map(\.assetIdentifier)) { _,_ in
-                paginationViewModel.updateSourceScreenshots(filteredScreenshots)
             }
             .alert("Photo Library Access Required", isPresented: $showPermissionAlert) {
                 Button("Settings", action: openSettings)
@@ -132,17 +112,6 @@ struct ScreenshotListView: View {
                 }
             }
         }
-    }
-
-    // MARK: - Computed Properties
-
-    /// Filtered screenshots based on search text and date filter
-    private var filteredScreenshots: [Screenshot] {
-        screenshotService.filterScreenshots(
-            allScreenshots,
-            showTodayOnly: showTodayOnly,
-            limit: Int.max
-        )
     }
 
     // MARK: - Methods
@@ -175,7 +144,10 @@ struct ScreenshotListView: View {
     /// Delete selected screenshots
     private func deleteSelectedScreenshots() {
         Task {
-            let screenshotsToDelete = allScreenshots.filter { selectedScreenshots.contains($0.id) }
+            // Fetch models by ID since we don't hold the full list in memory anymore
+            let screenshotsToDelete = selectedScreenshots.compactMap { id -> Screenshot? in
+                modelContext.model(for: id) as? Screenshot
+            }
             
             guard !screenshotsToDelete.isEmpty else { return }
             

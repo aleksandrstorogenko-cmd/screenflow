@@ -12,15 +12,25 @@ actor ExtractionCache {
     private var cache: [String: CacheEntry] = [:]
     private let maxCacheSize: Int
     private let cacheExpirationTime: TimeInterval
+    private let fileURL: URL
 
-    struct CacheEntry {
+    struct CacheEntry: Codable {
         let timestamp: Date
         let isCompleted: Bool
     }
 
-    init(maxCacheSize: Int = 100, cacheExpirationTime: TimeInterval = 86400) { // 24 hours
+    init(maxCacheSize: Int = 1000, cacheExpirationTime: TimeInterval = 86400) { // 24 hours
         self.maxCacheSize = maxCacheSize
         self.cacheExpirationTime = cacheExpirationTime
+        
+        // Setup file URL for persistence
+        let paths = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)
+        self.fileURL = paths[0].appendingPathComponent("ExtractionCache.json")
+        
+        // Load cache from disk
+        Task {
+            await loadFromDisk()
+        }
     }
 
     /// Check if extraction is cached and still valid
@@ -33,6 +43,7 @@ actor ExtractionCache {
         let age = Date().timeIntervalSince(entry.timestamp)
         if age > cacheExpirationTime {
             cache.removeValue(forKey: assetIdentifier)
+            saveToDisk() // Save after removal
             return false
         }
 
@@ -50,16 +61,19 @@ actor ExtractionCache {
         }
 
         cache[assetIdentifier] = CacheEntry(timestamp: Date(), isCompleted: true)
+        saveToDisk()
     }
 
     /// Clear entire cache
     func clear() {
         cache.removeAll()
+        saveToDisk()
     }
 
     /// Remove specific entry
     func remove(_ assetIdentifier: String) {
         cache.removeValue(forKey: assetIdentifier)
+        saveToDisk()
     }
 
     /// Get cache statistics
@@ -67,5 +81,26 @@ actor ExtractionCache {
         let count = cache.count
         let oldestAge = cache.values.map { Date().timeIntervalSince($0.timestamp) }.max()
         return (count, oldestAge)
+    }
+    
+    // MARK: - Persistence
+    
+    private func saveToDisk() {
+        do {
+            let data = try JSONEncoder().encode(cache)
+            try data.write(to: fileURL)
+        } catch {
+            print("Failed to save extraction cache: \(error)")
+        }
+    }
+    
+    private func loadFromDisk() {
+        do {
+            guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
+            let data = try Data(contentsOf: fileURL)
+            cache = try JSONDecoder().decode([String: CacheEntry].self, from: data)
+        } catch {
+            print("Failed to load extraction cache: \(error)")
+        }
     }
 }

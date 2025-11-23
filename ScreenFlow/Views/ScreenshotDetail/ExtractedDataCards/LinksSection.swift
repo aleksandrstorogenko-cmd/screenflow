@@ -9,7 +9,7 @@ import SwiftUI
 
 /// Standalone section showing links (styled exactly like the calendar example)
 struct LinksSection: View {
-    let urls: [String]
+    let data: ExtractedData
     @State private var copiedAll = false
 
     var body: some View {
@@ -36,11 +36,11 @@ struct LinksSection: View {
 
             // Link cards
             VStack(spacing: 0) {
-                ForEach(Array(urls.enumerated()), id: \.offset) { index, urlString in
+                ForEach(Array(data.urls.enumerated()), id: \.offset) { index, urlString in
                     LinkCard(urlString: urlString)
                         .padding(.horizontal, 20)
 
-                    if urlString != urls.last {
+                    if urlString != data.urls.last {
                         Divider()
                     }
                 }
@@ -55,7 +55,7 @@ struct LinksSection: View {
     }
 
     private func copyAllURLs() {
-        let allURLs = urls.joined(separator: "\n")
+        let allURLs = data.urls.joined(separator: "\n")
         UIPasteboard.general.string = allURLs
         copiedAll = true
 
@@ -134,6 +134,7 @@ struct LinkCard: View {
                     .contentShape(Rectangle())
             }
         }
+        .padding(.top, 8)
     }
 
     private func openURL() {
@@ -144,16 +145,4 @@ struct LinkCard: View {
     private func copyURL() {
         UIPasteboard.general.string = urlString
     }
-}
-
-#Preview {
-    LinksSection(urls: [
-        "https://aso.dev",
-        "https://trysastro.app",
-        "https://asomobile.net",
-        "https://appfollow.io",
-        "https://apptweak.com"
-    ])
-    .padding()
-    .background(Color(.systemGray6))
 }

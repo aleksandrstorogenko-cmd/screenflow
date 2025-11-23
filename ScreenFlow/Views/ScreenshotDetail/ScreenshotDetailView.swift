@@ -21,6 +21,9 @@ struct ScreenshotDetailView: View {
     /// Photo library service
     private let photoLibraryService = PhotoLibraryService.shared
 
+    /// Navigation notification service
+    private let navigationNotificationService = NavigationNotificationService.shared
+
     /// Environment dismiss action
     @Environment(\.dismiss) private var dismiss
 
@@ -47,6 +50,12 @@ struct ScreenshotDetailView: View {
     /// Deletion state
     @State private var isDeletingScreenshot = false
 
+    /// Zoom state
+    @State private var isZoomed = false
+
+    /// Previous sheet state for restoration
+    @State private var wasSheetPresented = true
+
     // MARK: - Initialization
 
     init(screenshot: Screenshot, allScreenshots: [Screenshot]) {
@@ -65,30 +74,39 @@ struct ScreenshotDetailView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            ScrollViewReader { proxy in
-                ScrollView(.horizontal, showsIndicators: false) {
-                    LazyHStack(spacing: 0) {
-                        ForEach(Array(allScreenshots.enumerated()), id: \.element.id) { index, screenshot in
-                                ScreenshotImageView(
-                                    screenshot: screenshot,
-                                    onAssetUnavailable: { handleMissingScreenshot(screenshot) }
-                                )
-                                    .frame(width: geometry.size.width, height: geometry.size.height)
-                                    .background(Color.black)
-                                    .id(index)
+            ZStack {
+                // Main content (screenshots)
+                ScrollViewReader { proxy in
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        LazyHStack(spacing: 0) {
+                            ForEach(Array(allScreenshots.enumerated()), id: \.element.id) { index, screenshot in
+                                    ScreenshotImageView(
+                                        screenshot: screenshot,
+                                        onAssetUnavailable: { handleMissingScreenshot(screenshot) },
+                                        isZoomed: Binding(
+                                            get: { currentIndex == index ? isZoomed : false },
+                                            set: { if currentIndex == index { isZoomed = $0 } }
+                                        )
+                                    )
+                                        .frame(width: geometry.size.width, height: geometry.size.height)
+                                        .background(Color.black)
+                                        .id(index)
+                            }
                         }
+                        .scrollTargetLayout()
                     }
-                    .scrollTargetLayout()
-                }
-                .scrollTargetBehavior(.paging)
-                .scrollPosition(id: $scrollPosition)
-                .onAppear {
-                    scrollPosition = currentIndex
-                    proxy.scrollTo(currentIndex, anchor: .leading)
-                }
-                .onChange(of: scrollPosition) { oldValue, newValue in
-                    if let newValue = newValue, newValue != currentIndex {
-                        currentIndex = newValue
+                    .scrollTargetBehavior(.paging)
+                    .scrollPosition(id: $scrollPosition)
+                    .scrollDisabled(isZoomed) // Disable navigation when zoomed
+                    .onAppear {
+                        scrollPosition = currentIndex
+                        proxy.scrollTo(currentIndex, anchor: .leading)
+                    }
+                    .onChange(of: scrollPosition) { oldValue, newValue in
+                        if let newValue = newValue, newValue != currentIndex {
+                            currentIndex = newValue
+                            isZoomed = false // Reset zoom on page change
+                        }
                     }
                 }
             }
@@ -97,15 +115,41 @@ struct ScreenshotDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
         .disableSwipeBack()
+        .onAppear {
+            // Notify to hide tab bar navigation
+            navigationNotificationService.sendHideTabBarNotification()
+        }
         .onDisappear {
             // Dismiss the info sheet when navigating away
             showInfoSheet = false
+//            navigationNotificationService.sendShowTabBarNotification()
         }
         .overlay(alignment: .bottom) {
-            if !showInfoSheet {
+            if !showInfoSheet && !isZoomed {
                 infoButton
                     .padding(.bottom, 40)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+
+            // Reset Zoom Button (always visible when zoomed)
+            if isZoomed {
+                VStack {
+                    Spacer()
+
+                        GlassButton {
+                            withAnimation {
+                                isZoomed = false
+                            }
+                        } content: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "arrow.down.right.and.arrow.up.left")
+                                Text("Reset Zoom")
+                            }
+                            .font(.system(size: 15, weight: .medium))
+                        }
+                }
+                .padding(.bottom, 170)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .animation(.easeInOut(duration: 0.3), value: showInfoSheet)
@@ -141,8 +185,9 @@ struct ScreenshotDetailView: View {
             )
             .presentationDetents([.height(155), .large], selection: $sheetDetent)
             .presentationDragIndicator(.visible)
-            .interactiveDismissDisabled(false)
+            .interactiveDismissDisabled(true)
             .presentationBackgroundInteraction(.enabled)
+            .presentationBackground(.white)
         }
         .alert(alertTitle, isPresented: $showingAlert) {
             Button("OK", role: .cancel) { }

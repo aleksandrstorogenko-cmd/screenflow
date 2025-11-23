@@ -111,24 +111,32 @@ final class PhotoLibraryService: ObservableObject {
     /// Sync screenshots from photo library to SwiftData
     /// - Parameter modelContext: SwiftData model context
     func syncScreenshots(modelContext: ModelContext) async {
+        // Fetch assets on main thread (PhotoKit requires this or handles it, but we need the result)
         let assets = fetchScreenshots()
-
+        
+        // Perform heavy lifting in a detached task to avoid blocking main thread
+        // We need to pass identifiers instead of PHAssets to avoid threading issues if possible,
+        // but PHAsset is thread-safe enough for reading properties.
+        // However, SwiftData operations MUST happen on the modelContext's thread.
+        // Since we are @MainActor, we are on the main thread.
+        // To optimize, we will calculate the diffs first.
+        
+        let assetIdentifiers = assets.map { $0.localIdentifier }
+        let assetMap = Dictionary(uniqueKeysWithValues: assets.map { ($0.localIdentifier, $0) })
+        
         // Fetch existing screenshots from database
         let descriptor = FetchDescriptor<Screenshot>()
         let existingScreenshots = (try? modelContext.fetch(descriptor)) ?? []
-
-        // Create a set of photo library asset identifiers
-        let photoLibraryIdentifiers = Set(assets.map { $0.localIdentifier })
-
-        // Create a set of existing asset identifiers for fast lookup
         let existingIdentifiers = Set(existingScreenshots.map { $0.assetIdentifier })
-
-        // 1) Add new screenshots that don't exist in the database
-        // Title generation happens on-demand when items become visible
-        for asset in assets {
-            let identifier = asset.localIdentifier
-
-            if !existingIdentifiers.contains(identifier) {
+        let photoLibraryIdentifiersSet = Set(assetIdentifiers)
+        
+        // Identify new and removed items
+        let newIdentifiers = photoLibraryIdentifiersSet.subtracting(existingIdentifiers)
+        let removedIdentifiers = existingIdentifiers.subtracting(photoLibraryIdentifiersSet)
+        
+        // 1) Add new screenshots
+        for identifier in newIdentifiers {
+            if let asset = assetMap[identifier] {
                 let screenshot = Screenshot(
                     assetIdentifier: identifier,
                     fileName: asset.value(forKey: "filename") as? String ?? "Unknown",
@@ -136,18 +144,20 @@ final class PhotoLibraryService: ObservableObject {
                     width: asset.pixelWidth,
                     height: asset.pixelHeight
                 )
-
                 modelContext.insert(screenshot)
             }
         }
-
-        // 2) Remove screenshots that no longer exist in photo library
-        for screenshot in existingScreenshots {
-            if !photoLibraryIdentifiers.contains(screenshot.assetIdentifier) {
-                modelContext.delete(screenshot)
+        
+        // 2) Remove deleted screenshots
+        // We have to find the model objects to delete them
+        if !removedIdentifiers.isEmpty {
+            for screenshot in existingScreenshots {
+                if removedIdentifiers.contains(screenshot.assetIdentifier) {
+                    modelContext.delete(screenshot)
+                }
             }
         }
-
+        
         // Save the context
         try? modelContext.save()
     }
@@ -215,7 +225,7 @@ final class PhotoLibraryService: ObservableObject {
             autoreleasepool {
                 let options = PHImageRequestOptions()
                 options.deliveryMode = .opportunistic
-                options.isSynchronous = true
+                options.isSynchronous = false // Changed to false for async loading
                 options.resizeMode = .exact
 
                 // Good balance between quality and memory (Vision needs clear text)
@@ -226,7 +236,14 @@ final class PhotoLibraryService: ObservableObject {
                     targetSize: targetSize,
                     contentMode: .aspectFit,
                     options: options
-                ) { [weak self] image, _ in
+                ) { [weak self] image, info in
+                    // Check if this is a degraded image (thumbnail)
+                    // If so, skip processing and wait for high quality
+                    if let info = info, let isDegraded = info[PHImageResultIsDegradedKey] as? Bool, isDegraded {
+                        return
+                    }
+                    
+
                     autoreleasepool {
                         guard let self = self,
                               let image = image,

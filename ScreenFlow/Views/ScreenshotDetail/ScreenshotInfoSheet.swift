@@ -37,16 +37,6 @@ struct ScreenshotInfoSheet: View {
                                 .padding(.horizontal)
                                 .padding(.top, 10)
 
-                            // Links Section (if available) - Separate from Extracted Data
-                            if let extractedData = screenshot.extractedData, !extractedData.urls.isEmpty {
-                                LinksSection(urls: extractedData.urls)
-                                    .padding(.top, 8)
-
-                                Divider()
-                                    .padding(.horizontal)
-                                    .padding(.top, 10)
-                            }
-
                             // Show loading state or extracted data
                             if isRefreshing {
                                 VStack(spacing: 16) {

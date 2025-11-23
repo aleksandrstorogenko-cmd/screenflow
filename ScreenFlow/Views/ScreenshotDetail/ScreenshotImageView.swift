@@ -21,15 +21,16 @@ struct ScreenshotImageView: View {
     /// Loading state
     @State private var isLoading = true
 
+    /// Zoom state binding
+    @Binding var isZoomed: Bool
+
     var body: some View {
         Group {
             if isLoading {
                 ProgressView()
                     .tint(.white)
             } else if let image = fullImage {
-                Image(uiImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
+                ZoomableImageView(image: image, isZoomed: $isZoomed)
                     .ignoresSafeArea()
             } else {
                 // Error state

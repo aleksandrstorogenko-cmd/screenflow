@@ -21,7 +21,12 @@ final class ScreenshotPaginationViewModel: ObservableObject {
     private let pageSize: Int
 
     /// Full filtered dataset
-    private var sourceScreenshots: [Screenshot] = []
+    private(set) var sourceScreenshots: [Screenshot] = []
+    
+    /// Total number of items in the source
+    var totalCount: Int {
+        sourceScreenshots.count
+    }
 
     /// Track identifiers to detect data changes
     private var sourceIdentifiers: [String] = []
