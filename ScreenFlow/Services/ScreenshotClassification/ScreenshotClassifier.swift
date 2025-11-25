@@ -9,6 +9,7 @@ import Foundation
 import Vision
 import CoreML
 import CoreGraphics
+import Combine
 
 /// Screenshot classification result
 struct ScreenshotClassification {

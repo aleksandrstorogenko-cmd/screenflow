@@ -7,6 +7,7 @@
 //
 
 import UIKit
+import SwiftUI
 #if canImport(FoundationModels)
 import FoundationModels
 #endif
@@ -15,9 +16,9 @@ import FoundationModels
 
 /// Converts OCR blocks to Markdown using intelligent reconstruction.
 ///
-/// The service automatically selects between two engines:
+/// The service automatically selects between engines:
 /// - Apple Intelligence: On-device LLM reconstruction (iOS 26+ with availability check)
-/// - Heuristic: Pure geometric layout analysis (always available, offline)
+/// - Heuristic: Pure geometric layout analysis with smart filtering (always available, offline)
 final class MarkdownConverterService: MarkdownConverterServiceProtocol {
 
     // MARK: - Properties
@@ -26,6 +27,15 @@ final class MarkdownConverterService: MarkdownConverterServiceProtocol {
 
     /// Current engine being used
     let engine: MarkdownEngineKind
+    
+    /// Text extraction service for rule-based filtering
+    private let textExtraction = TextExtractionService.shared
+
+    /// Maximum number of OCR blocks per chunk for Apple Intelligence
+    private let maxBlocksPerChunk = 40
+
+    /// Maximum total text length per chunk for Apple Intelligence processing
+    private let maxTextLengthPerChunk = 1800
 
     // MARK: - Initialization
 
@@ -72,7 +82,7 @@ final class MarkdownConverterService: MarkdownConverterServiceProtocol {
         case .appleIntelligence:
             if #available(iOS 26.0, *) {
                 #if canImport(FoundationModels)
-                // Try Apple Intelligence path, but fall back to heuristics on any error
+                // Try Apple Intelligence path with chunking support, fall back to heuristics on error
                 do {
                     return try await convertWithAppleIntelligence(blocks: blocks)
                 } catch {
@@ -101,6 +111,7 @@ final class MarkdownConverterService: MarkdownConverterServiceProtocol {
     // MARK: - Apple Intelligence Path
 
     /// Converts OCR blocks to Markdown using on-device Apple Intelligence.
+    /// Automatically chunks large inputs for optimal performance.
     ///
     /// - Parameter blocks: OCR blocks with coordinates
     /// - Returns: Reconstructed Markdown string
@@ -108,42 +119,144 @@ final class MarkdownConverterService: MarkdownConverterServiceProtocol {
     @available(iOS 26.0, *)
     private func convertWithAppleIntelligence(blocks: [OcrBlock]) async throws -> String {
         #if canImport(FoundationModels)
-        // Encode blocks to JSON
-        let encoder = JSONEncoder()
-        let data = try encoder.encode(blocks)
+        // Check if we need to chunk the input
+        let totalTextLength = blocks.reduce(0) { $0 + $1.text.count }
+        let needsChunking = blocks.count > maxBlocksPerChunk || totalTextLength > maxTextLengthPerChunk
+        
+        if needsChunking {
+            print("MarkdownConverterService: Large input (\(blocks.count) blocks, \(totalTextLength) chars), processing in chunks...")
+            return try await convertWithChunking(blocks: blocks)
+        }
+        
+        // Process as single chunk
+        return try await convertChunk(blocks: blocks)
+        #else
+        // Fallback to heuristics if framework not available at runtime
+        return try await convertWithHeuristics(blocks: blocks)
+        #endif
+    }
+
+    /// Process blocks in chunks and combine results
+    @available(iOS 26.0, *)
+    private func convertWithChunking(blocks: [OcrBlock]) async throws -> String {
+        #if canImport(FoundationModels)
+        // Sort blocks by visual order (top to bottom, left to right)
+        let sorted = blocks.sorted { a, b in
+            if abs(a.y - b.y) > 0.01 {
+                return a.y > b.y  // Larger y first (visually higher)
+            } else if abs(a.x - b.x) > 0.01 {
+                return a.x < b.x  // Same row: left to right
+            } else {
+                return a.text < b.text  // Tie-breaker for deterministic ordering
+            }
+        }
+        
+        // Split into chunks based on both block count and text length
+        var chunks: [[OcrBlock]] = []
+        var currentChunk: [OcrBlock] = []
+        var currentTextLength = 0
+        
+        for block in sorted {
+            let blockTextLength = block.text.count
+            
+            // Check if adding this block would exceed limits
+            let wouldExceedBlockLimit = currentChunk.count >= maxBlocksPerChunk
+            let wouldExceedTextLimit = currentTextLength + blockTextLength > maxTextLengthPerChunk
+            
+            if !currentChunk.isEmpty && (wouldExceedBlockLimit || wouldExceedTextLimit) {
+                // Start new chunk
+                chunks.append(currentChunk)
+                currentChunk = [block]
+                currentTextLength = blockTextLength
+            } else {
+                // Add to current chunk
+                currentChunk.append(block)
+                currentTextLength += blockTextLength
+            }
+        }
+        
+        // Add final chunk
+        if !currentChunk.isEmpty {
+            chunks.append(currentChunk)
+        }
+        
+        print("MarkdownConverterService: Split into \(chunks.count) chunks")
+        
+        // Process chunks in parallel for speed
+        let results = try await withThrowingTaskGroup(of: (Int, String).self) { group in
+            for (index, chunk) in chunks.enumerated() {
+                group.addTask {
+                    let markdown = try await self.convertChunk(blocks: chunk)
+                    return (index, markdown)
+                }
+            }
+            
+            var indexed: [(Int, String)] = []
+            for try await result in group {
+                indexed.append(result)
+            }
+            return indexed.sorted { $0.0 < $1.0 }.map { $0.1 }
+        }
+        
+        // Combine chunks with proper spacing
+        return results.joined(separator: "\n\n")
+        #else
+        return try await convertWithHeuristics(blocks: blocks)
+        #endif
+    }
+
+    /// Convert a single chunk of blocks to Markdown
+    @available(iOS 26.0, *)
+    private func convertChunk(blocks: [OcrBlock]) async throws -> String {
+        #if canImport(FoundationModels)
+        // Use only blocks with non-empty text (detailed filtering happens in pipeline)
+        let filteredBlocks = blocks.filter { block in
+            let text = block.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            return !text.isEmpty
+        }
+        
+        if filteredBlocks.isEmpty {
+            return ""
+        }
+        
+        // Simplify blocks but include x-position for layout context
+        let simplifiedBlocks = filteredBlocks.map { block in
+            [
+                "text": block.text,
+                "y": String(format: "%.3f", block.y),
+                "height": String(format: "%.3f", block.height)
+            ]
+        }
+
+        // Encode to compact JSON
+        let data = try JSONSerialization.data(withJSONObject: simplifiedBlocks, options: [])
         let jsonString = String(data: data, encoding: .utf8) ?? "[]"
 
-        // Construct prompt for on-device LLM
+        // Simple formatting prompt - blocks are already cleaned
         let prompt = """
-        You are an OCR post-processor.
-
-        Input:
-        - JSON array of text blocks with coordinates (x, y, width, height) in normalized page coordinates.
-
-        Task:
-        - Reconstruct the original document as Markdown.
-        - Preserve ALL text exactly as it appears (do not invent new content).
-        - Use:
-          * #, ##, ### for headings (larger or top lines)
-          * Blank line between paragraphs
-          * Bulleted lists (- item) and numbered lists (1., 2., ...)
-          * **bold** and *italic* only when clearly used as headings or emphasis
-        - Output ONLY the Markdown text directly.
-        - DO NOT wrap output in ```markdown code blocks.
-        - NO explanations, NO code fences, NO commentary.
-
-        OCR_BLOCKS_JSON:
+        Format OCR blocks as Markdown. Each block has: text, y-position (0-1, top→bottom), height.
+        
+        Rules:
+        - Preserve ALL text exactly as provided (already cleaned)
+        - Do NOT translate - keep original language
+        - Use # for first large text block (height > others)
+        - Use ## for other large text blocks
+        - Add blank line between paragraphs
+        - Keep lists if text starts with "-", "•", or numbers
+        - Output ONLY Markdown text, NO code blocks, NO explanations
+        
+        Blocks:
         \(jsonString)
         """
 
-        // Use LanguageModelSession to generate Markdown
-        print("MarkdownConverterService: Creating LanguageModelSession...")
+        // Use LanguageModelSession
+        let textLength = filteredBlocks.reduce(0) { $0 + $1.text.count }
+        print("MarkdownConverterService: Processing chunk with \(filteredBlocks.count) blocks (\(textLength) chars) after filtering...")
+        
         let session = LanguageModelSession()
-
-        print("MarkdownConverterService: Sending prompt to model (text blocks: \(blocks.count))...")
         let response = try await session.respond(to: prompt)
 
-        print("MarkdownConverterService: Received response from model (length: \(response.content.count))")
+        print("MarkdownConverterService: Received response (\(response.content.count) chars)")
         
         // Clean up response - remove code block wrappers if AI added them
         var cleanedContent = response.content.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -182,17 +295,44 @@ final class MarkdownConverterService: MarkdownConverterServiceProtocol {
     ///
     /// - Parameter blocks: OCR blocks with coordinates
     /// - Returns: Reconstructed Markdown string
+    /// Detects if content is from social media or messaging apps
+    /// - Parameter blocks: OCR blocks to analyze
+    /// - Returns: True if content appears to be from social media/messaging
+    private func isSocialOrMessagingContent(_ blocks: [OcrBlock]) -> Bool {
+        let allText = blocks.map { $0.text.lowercased() }.joined(separator: " ")
+        
+        let socialIndicators = [
+            "like", "reply", "comment", "share", "retweet", "repost",
+            "ago", "follow", "message", "chat", "send", "delivered",
+            "read", "typing", "online", "dm", "pm"
+        ]
+        
+        var indicatorCount = 0
+        for indicator in socialIndicators {
+            if allText.contains(indicator) {
+                indicatorCount += 1
+            }
+        }
+        
+        return indicatorCount >= 3
+    }
+    
     private func convertWithHeuristics(blocks: [OcrBlock]) async throws -> String {
         // Safety check - return empty string if no blocks
         guard !blocks.isEmpty else { return "" }
+        
+        // Check if this is social media/messaging content
+        let isSocialContent = isSocialOrMessagingContent(blocks)
 
         // A) Sort blocks by visual order (top to bottom, then left to right)
         // Vision uses bottom-left origin, so larger y = higher on page
         let sorted = blocks.sorted { a, b in
             if abs(a.y - b.y) > 0.01 {
                 return a.y > b.y  // Larger y first (visually higher)
-            } else {
+            } else if abs(a.x - b.x) > 0.01 {
                 return a.x < b.x  // Same row: left to right
+            } else {
+                return a.text < b.text  // Tie-breaker for deterministic ordering
             }
         }
 
@@ -256,46 +396,64 @@ final class MarkdownConverterService: MarkdownConverterServiceProtocol {
         var mdLines: [String] = []
         var hasEmittedMainHeading = false
 
-        for line in lines {
-            let text = line.text
-
-            // 1) Detect lists
-            let numberedListPattern = "^[0-9]+[).]\\s+"
-            let bulletListPattern = "^[-•*]\\s+"
-
-            if let _ = text.range(of: numberedListPattern, options: .regularExpression) {
-                // Numbered list - append as-is
-                mdLines.append(text)
-                continue
-            }
-
-            if let bulletRange = text.range(of: bulletListPattern, options: .regularExpression) {
-                // Bullet list - normalize to "- "
-                let normalized = text.replacingCharacters(in: bulletRange, with: "- ")
-                mdLines.append(normalized)
-                continue
-            }
-
-            // 2) Detect headings
-            let isBig = line.height > medianHeight * 1.3
-            let isTop = line.y > topBand
-            let isShort = text.count < 40
-
-            if (isBig && isShort) || (isTop && isShort) {
-                // This is a heading
-                if !hasEmittedMainHeading {
-                    mdLines.append("# \(text)")
-                    hasEmittedMainHeading = true
-                } else {
-                    mdLines.append("## \(text)")
+        if isSocialContent {
+            // Special formatting for social media/messaging content
+            // Each line is a separate message with empty lines between them
+            for line in lines {
+                let text = line.text
+                
+                // Skip obvious UI noise (already filtered by textExtraction)
+                if text.count < 3 || TextFilteringRules.isSocialInteraction(text) {
+                    continue
                 }
-                mdLines.append("")  // Blank line after heading
-                continue
+                
+                // Each message is a separate paragraph
+                mdLines.append(text)
+                mdLines.append("")  // Empty line between messages
             }
+        } else {
+            // Standard formatting for non-social content
+            for line in lines {
+                let text = line.text
 
-            // 3) Default paragraph
-            mdLines.append(text)
-            mdLines.append("")  // Blank line between paragraphs
+                // 1) Detect lists
+                let numberedListPattern = "^[0-9]+[).]\\s+"
+                let bulletListPattern = "^[-•*]\\s+"
+
+                if let _ = text.range(of: numberedListPattern, options: .regularExpression) {
+                    // Numbered list - append as-is
+                    mdLines.append(text)
+                    continue
+                }
+
+                if let bulletRange = text.range(of: bulletListPattern, options: .regularExpression) {
+                    // Bullet list - normalize to "- "
+                    let normalized = text.replacingCharacters(in: bulletRange, with: "- ")
+                    mdLines.append(normalized)
+                    continue
+                }
+
+                // 2) Detect headings
+                let isBig = line.height > medianHeight * 1.3
+                let isTop = line.y > topBand
+                let isShort = text.count < 40
+
+                if (isBig && isShort) || (isTop && isShort) {
+                    // This is a heading
+                    if !hasEmittedMainHeading {
+                        mdLines.append("# \(text)")
+                        hasEmittedMainHeading = true
+                    } else {
+                        mdLines.append("## \(text)")
+                    }
+                    mdLines.append("")  // Blank line after heading
+                    continue
+                }
+
+                // 3) Default paragraph
+                mdLines.append(text)
+                mdLines.append("")  // Blank line between paragraphs
+            }
         }
 
         // F) Trim trailing blank lines

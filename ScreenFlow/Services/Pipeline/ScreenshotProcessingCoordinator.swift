@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import Combine
 
 /// Coordinates the complete screenshot processing pipeline
 ///
